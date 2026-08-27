@@ -9,6 +9,9 @@ import gg.grounds.scene.editor.lease.LeaseAcquisition
 import gg.grounds.scene.editor.mutation.SceneMutation
 import gg.grounds.scene.editor.mutation.SceneMutationRejection
 import gg.grounds.scene.editor.mutation.SceneMutationResult
+import gg.grounds.scene.editor.repository.SceneFingerprint
+import gg.grounds.scene.editor.repository.SceneSaveResult
+import gg.grounds.scene.editor.repository.WorldSceneRepository
 import gg.grounds.scene.editor.validation.SaveEligibility
 import gg.grounds.scene.editor.validation.SceneValidationState
 import gg.grounds.scene.format.LocalId
@@ -31,6 +34,7 @@ private constructor(
     private val listeners = linkedSetOf<(SceneEditorEvent) -> Unit>()
     private val eventQueue = ArrayDeque<QueuedEvent>()
     private var drainingEvents = false
+    private val saveReservations = linkedMapOf<UUID, SaveReservation>()
 
     constructor(
         catalogs: SceneCatalogBinding,
@@ -46,6 +50,15 @@ private constructor(
 
     @Synchronized
     fun open(worldId: UUID, document: SceneDocument): SessionOpenResult {
+        return open(worldId, document, SceneFingerprint.Absent)
+    }
+
+    @Synchronized
+    fun open(
+        worldId: UUID,
+        document: SceneDocument,
+        baseFingerprint: SceneFingerprint,
+    ): SessionOpenResult {
         sessions[worldId]?.let {
             return SessionOpenResult.Opened(it)
         }
@@ -60,6 +73,7 @@ private constructor(
                 0,
                 validation,
                 SaveEligibility.from(validation),
+                baseFingerprint,
             )
         return SessionOpenResult.Opened(
             EditorSession(worldId, state).also { sessions[worldId] = it }
@@ -139,6 +153,11 @@ private constructor(
         val outcome =
             synchronized(this) {
                 val session = sessions[worldId] ?: return@synchronized MutationOutcome.NoSession
+                if (saveReservations.containsKey(worldId))
+                    return@synchronized rejected(
+                        session.document,
+                        SceneMutationRejection.SAVE_IN_PROGRESS,
+                    )
                 mutation.target?.let { target ->
                     val selected =
                         session.state.selections[mutation.actor]?.elementId
@@ -210,6 +229,7 @@ private constructor(
     fun undo(worldId: UUID, steps: Int): Boolean {
         if (steps <= 0) return false
         val session = sessions[worldId] ?: return false
+        if (saveReservations.containsKey(worldId)) return false
         val transition = session.history.undo(session.document, steps) ?: return false
         transition(session, transition.document, transition.history)
         return true
@@ -219,32 +239,83 @@ private constructor(
     fun redo(worldId: UUID, steps: Int): Boolean {
         if (steps <= 0) return false
         val session = sessions[worldId] ?: return false
+        if (saveReservations.containsKey(worldId)) return false
         val transition = session.history.redo(session.document, steps) ?: return false
         transition(session, transition.document, transition.history)
         return true
     }
 
+    /**
+     * Persists without holding the session monitor during file I/O. A reservation freezes document
+     * transitions for this world until the repository result is reconciled.
+     */
+    fun save(worldId: UUID, repository: WorldSceneRepository): SceneSaveResult {
+        val reservation = synchronized(this) { beginSave(worldId) }
+        if (reservation !is SaveReservationResult.Reserved) return reservation.toSaveResult()
+        return try {
+            val result = repository.save(reservation.reservation)
+            synchronized(this) { finishSave(reservation.reservation, result) }
+        } catch (error: Throwable) {
+            synchronized(this) {
+                finishSave(
+                    reservation.reservation,
+                    SceneSaveResult.IoFailure(error.message ?: "save"),
+                )
+            }
+            if (error !is Exception) throw error
+            SceneSaveResult.IoFailure(error.message ?: "save")
+        }
+    }
+
+    /**
+     * Package-internal protocol endpoint for repositories and common tests, never a Paper bypass.
+     */
     @Synchronized
-    fun prepareSave(worldId: UUID): SaveSnapshotResult {
-        val session = sessions[worldId] ?: return SaveSnapshotResult.NoSession
-        val bytes = canonical(session.document) ?: return SaveSnapshotResult.EncodingFailure
-        return SaveSnapshotResult.Prepared(
-            SaveSnapshot(worldId, session.state.generation, session.document, bytes)
-        )
+    private fun beginSave(worldId: UUID): SaveReservationResult {
+        val session = sessions[worldId] ?: return SaveReservationResult.NoSession
+        if (saveReservations.containsKey(worldId)) return SaveReservationResult.SaveInProgress
+        if (!session.state.saveEligibility.isEligible)
+            return SaveReservationResult.Ineligible(session.state.saveEligibility)
+        val bytes = canonical(session.document) ?: return SaveReservationResult.EncodingFailure
+        val token = UUID.randomUUID()
+        val reservation =
+            SaveReservation(
+                this,
+                token,
+                worldId,
+                session.state.generation,
+                session.document,
+                bytes,
+                session.state.baseFingerprint,
+            )
+        saveReservations[worldId] = reservation
+        return SaveReservationResult.Reserved(reservation)
     }
 
     @Synchronized
-    internal fun confirmPersisted(snapshot: SaveSnapshot): Boolean {
-        val session = sessions[snapshot.worldId] ?: return false
-        val current = canonical(session.document) ?: return false
+    private fun finishSave(reservation: SaveReservation, result: SceneSaveResult): SceneSaveResult {
+        if (!reservation.isActive()) return result
+        saveReservations.remove(reservation.worldId)
+        val session = sessions[reservation.worldId] ?: return result
+        if (result !is SceneSaveResult.Saved) return result
+        val current = canonical(session.document) ?: return SceneSaveResult.EncodingFailure
         if (
-            session.state.generation != snapshot.generation ||
-                !snapshot.matchesCanonicalBytes(current)
+            session.state.generation != reservation.generation ||
+                !reservation.matchesCanonicalBytes(current) ||
+                result.fingerprint != SceneFingerprint.of(reservation.copyCanonicalBytes())
         )
-            return false
-        session.state = session.state.copy(baseCanonicalBytes = snapshot.copyCanonicalBytes())
-        return true
+            return SceneSaveResult.StaleGeneration
+        session.state =
+            session.state.copy(
+                baseCanonicalBytes = reservation.copyCanonicalBytes(),
+                baseFingerprint = result.fingerprint,
+            )
+        return result
     }
+
+    @Synchronized
+    private fun isReservationActive(reservation: SaveReservation): Boolean =
+        saveReservations[reservation.worldId] === reservation && reservation.matchesOwner(this)
 
     @Synchronized
     override fun hasUnsavedChanges(worldId: UUID): Boolean {
@@ -319,6 +390,28 @@ private constructor(
             override val result: SceneMutationResult? = null
         }
     }
+
+    /** Capability name is public for the repository boundary; its constructor is not. */
+    class SaveReservation
+    internal constructor(
+        private val owner: EditorSessionService,
+        private val token: UUID,
+        val worldId: UUID,
+        val generation: Long,
+        val document: SceneDocument,
+        bytes: ByteArray,
+        val expectedFingerprint: SceneFingerprint,
+    ) {
+        private val bytes = bytes.copyOf()
+
+        internal fun matchesCanonicalBytes(candidate: ByteArray) = bytes.contentEquals(candidate)
+
+        internal fun copyCanonicalBytes() = bytes.copyOf()
+
+        internal fun isActive() = owner.isReservationActive(this)
+
+        internal fun matchesOwner(candidate: EditorSessionService) = owner === candidate
+    }
 }
 
 sealed interface SessionOpenResult {
@@ -337,27 +430,25 @@ sealed interface SelectionResult {
     data object NoSession : SelectionResult
 }
 
-class SaveSnapshot
-internal constructor(
-    val worldId: UUID,
-    val generation: Long,
-    val document: SceneDocument,
-    bytes: ByteArray,
-) {
-    private val bytes: ByteArray = bytes.copyOf()
-    val canonicalBytes: ByteArray
-        get() = bytes.copyOf()
+/** Opaque, token-bound save capability. Only common code can construct or complete one. */
+sealed interface SaveReservationResult {
+    data class Reserved(internal val reservation: EditorSessionService.SaveReservation) :
+        SaveReservationResult
 
-    internal fun matchesCanonicalBytes(candidate: ByteArray): Boolean =
-        bytes.contentEquals(candidate)
+    data object NoSession : SaveReservationResult
 
-    internal fun copyCanonicalBytes(): ByteArray = bytes.copyOf()
-}
+    data object SaveInProgress : SaveReservationResult
 
-sealed interface SaveSnapshotResult {
-    data class Prepared(val snapshot: SaveSnapshot) : SaveSnapshotResult
+    data class Ineligible(val eligibility: SaveEligibility) : SaveReservationResult
 
-    data object NoSession : SaveSnapshotResult
+    data object EncodingFailure : SaveReservationResult
 
-    data object EncodingFailure : SaveSnapshotResult
+    fun toSaveResult(): SceneSaveResult =
+        when (this) {
+            NoSession -> SceneSaveResult.NoSession
+            SaveInProgress -> SceneSaveResult.SaveInProgress
+            is Ineligible -> SceneSaveResult.Ineligible
+            EncodingFailure -> SceneSaveResult.EncodingFailure
+            is Reserved -> error("A reservation is not a save result")
+        }
 }

@@ -1,6 +1,7 @@
 package gg.grounds.scene.editor.session
 
 import gg.grounds.scene.editor.history.SceneHistory
+import gg.grounds.scene.editor.repository.SceneFingerprint
 import gg.grounds.scene.editor.validation.SaveEligibility
 import gg.grounds.scene.editor.validation.SceneValidationState
 import gg.grounds.scene.format.SceneDocument
@@ -15,6 +16,7 @@ class SessionState(
     val generation: Long,
     val validation: SceneValidationState,
     val saveEligibility: SaveEligibility,
+    val baseFingerprint: SceneFingerprint,
 ) {
     /** Array and map are copied at the state boundary so callers cannot alter session state. */
     private val baseCanonicalBytes: ByteArray = baseCanonicalBytes.copyOf()
@@ -33,6 +35,7 @@ class SessionState(
         generation: Long = this.generation,
         validation: SceneValidationState = this.validation,
         saveEligibility: SaveEligibility = this.saveEligibility,
+        baseFingerprint: SceneFingerprint = this.baseFingerprint,
     ): SessionState =
         SessionState(
             document,
@@ -42,5 +45,6 @@ class SessionState(
             generation,
             validation,
             saveEligibility,
+            baseFingerprint,
         )
 }

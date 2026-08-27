@@ -16,6 +16,7 @@ enum class SceneMutationRejection {
     SELECTION_MISMATCH,
     LEASE_REQUIRED,
     LEASE_HELD_BY_OTHER,
+    SAVE_IN_PROGRESS,
 }
 
 sealed interface SceneMutationResult {

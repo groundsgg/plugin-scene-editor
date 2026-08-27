@@ -6,14 +6,24 @@ import gg.grounds.scene.editor.lease.ElementLeaseRegistry
 import gg.grounds.scene.editor.mutation.PlayerPlacement
 import gg.grounds.scene.editor.mutation.SceneMutationRejection
 import gg.grounds.scene.editor.mutation.SceneMutations
+import gg.grounds.scene.editor.repository.AtomicSceneFileStore
+import gg.grounds.scene.editor.repository.NioAtomicSceneFileStore
+import gg.grounds.scene.editor.repository.SceneLoadResult
+import gg.grounds.scene.editor.repository.SceneSaveResult
+import gg.grounds.scene.editor.repository.WorldSceneRepository
 import gg.grounds.scene.format.AssetCatalog
 import gg.grounds.scene.format.AssetDefinition
 import gg.grounds.scene.format.AssetKey
 import gg.grounds.scene.format.AssetKind
 import gg.grounds.scene.format.CatalogId
+import gg.grounds.scene.format.CatalogReference
 import gg.grounds.scene.format.CatalogVersionRange
 import gg.grounds.scene.format.LocalId
+import gg.grounds.scene.format.SceneCatalogReferences
+import gg.grounds.scene.format.SceneDocument
 import gg.grounds.scene.format.Vec3
+import java.nio.file.Files
+import java.nio.file.Path
 import java.time.Clock
 import java.util.UUID
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -106,15 +116,20 @@ class EditorSessionServiceTest {
     }
 
     @Test
-    fun `canonical base bytes determine clean dirty state and saved history remains undoable`() {
+    fun `service save writes canonical root, updates fingerprint and leaves history undoable`() {
         val service = EditorSessionService(binding)
-        val original = binding.newDocument("grounds:test")
-        service.open(world, original)
+        val root = Files.createTempDirectory("scene-service-save")
+        val repository = WorldSceneRepository(root)
+        service.open(world, binding.newDocument("grounds:test"))
         service.mutate(world, createMarker(alice))
-        val edited = service.session(world)!!.document
-        assertTrue(service.confirmPersisted(service.prepareSave(world).snapshot()))
+        assertTrue(service.save(world, repository) is SceneSaveResult.Saved)
 
         assertFalse(service.hasUnsavedChanges(world))
+        assertTrue(repository.load() is SceneLoadResult.Loaded)
+        assertEquals(
+            (repository.load() as SceneLoadResult.Loaded).fingerprint,
+            service.session(world)!!.state.baseFingerprint,
+        )
         assertEquals(1, service.session(world)!!.history.undoSize)
         assertTrue(service.undo(world))
         assertTrue(service.hasUnsavedChanges(world))
@@ -227,7 +242,7 @@ class EditorSessionServiceTest {
     }
 
     @Test
-    fun `multi step history preflights atomically and a stale save snapshot cannot clean newer content`() {
+    fun `multi step history preflights atomically`() {
         val service = EditorSessionService(binding)
         service.open(world, binding.newDocument("grounds:test"))
         service.mutate(world, createMarker(alice))
@@ -245,13 +260,6 @@ class EditorSessionServiceTest {
         assertTrue(service.redo(world, 2))
         assertEquals(beforeRejectedUndo, service.session(world)!!.document)
 
-        val snapshot = service.prepareSave(world).snapshot()
-        service.mutate(
-            world,
-            SceneMutations.setPosition(alice, LocalId("marker"), Vec3(2.0, 0.0, 0.0)),
-        )
-        assertFalse(service.confirmPersisted(snapshot))
-        assertTrue(service.hasUnsavedChanges(world))
         assertTrue(service.undo(world))
         assertEquals(afterFirst.elements.size, service.session(world)!!.document.elements.size)
     }
@@ -271,13 +279,91 @@ class EditorSessionServiceTest {
     }
 
     @Test
-    fun `save snapshot bytes are defensive and a corrupted public copy cannot affect confirmation`() {
+    fun `normal save refuses catalog-unverified documents`() {
+        val service = EditorSessionService(binding)
+        val verified = binding.newDocument("grounds:test")
+        val unverified =
+            SceneDocument(
+                verified.schemaVersion,
+                verified.id,
+                verified.metadata,
+                SceneCatalogReferences(
+                    CatalogReference(CatalogId("grounds:assets"), "other"),
+                    verified.catalogs.actions,
+                ),
+                verified.groups,
+                verified.elements,
+            )
+        service.open(world, unverified)
+
+        val result =
+            service.save(world, WorldSceneRepository(Files.createTempDirectory("scene-ineligible")))
+
+        assertTrue(result is SceneSaveResult.Ineligible)
+    }
+
+    @Test
+    fun `save reservation blocks transitions and nested save then releases after exception`() {
+        val service = EditorSessionService(binding)
+        val root = Files.createTempDirectory("scene-reservation")
+        service.open(world, binding.newDocument("grounds:test"))
+        service.mutate(world, createMarker(alice))
+        service.select(world, alice, LocalId("marker"))
+        lateinit var repository: WorldSceneRepository
+        val store = CallbackStore {
+            assertEquals(
+                SceneMutationRejection.SAVE_IN_PROGRESS,
+                (service
+                        .mutate(
+                            world,
+                            SceneMutations.setPosition(
+                                alice,
+                                LocalId("marker"),
+                                Vec3(3.0, 0.0, 0.0),
+                            ),
+                        )
+                        .result as gg.grounds.scene.editor.mutation.SceneMutationResult.Rejected)
+                    .reason,
+            )
+            assertFalse(service.undo(world))
+            assertFalse(service.redo(world))
+            assertTrue(service.save(world, repository) is SceneSaveResult.SaveInProgress)
+            throw IllegalStateException("injected")
+        }
+        repository = WorldSceneRepository(root, store)
+
+        assertTrue(service.save(world, repository) is SceneSaveResult.IoFailure)
+        assertTrue(
+            service
+                .mutate(
+                    world,
+                    SceneMutations.setPosition(alice, LocalId("marker"), Vec3(4.0, 0.0, 0.0)),
+                )
+                .accepted
+        )
+    }
+
+    @Test
+    fun `fatal save error releases reservation before it is rethrown`() {
         val service = EditorSessionService(binding)
         service.open(world, binding.newDocument("grounds:test"))
-        val snapshot = service.prepareSave(world).snapshot()
-        snapshot.canonicalBytes[0] = (snapshot.canonicalBytes[0].toInt() xor 1).toByte()
-        assertTrue(service.confirmPersisted(snapshot))
-        assertFalse(service.hasUnsavedChanges(world))
+        val repository =
+            WorldSceneRepository(
+                Files.createTempDirectory("scene-fatal-reservation"),
+                CallbackStore { throw AssertionError("fatal") },
+            )
+        try {
+            service.save(world, repository)
+            throw AssertionError("expected fatal error")
+        } catch (error: AssertionError) {
+            assertEquals("fatal", error.message)
+        }
+        assertTrue(
+            service.save(
+                world,
+                WorldSceneRepository(Files.createTempDirectory("scene-after-fatal")),
+            ) is SceneSaveResult.Saved
+        )
     }
 
     @Test
@@ -328,6 +414,16 @@ class EditorSessionServiceTest {
             PlayerPlacement(Vec3(0.0, 0.0, 0.0), 0.0),
         )
 
-    private fun SaveSnapshotResult.snapshot(): SaveSnapshot =
-        (this as SaveSnapshotResult.Prepared).snapshot
+    private class CallbackStore(private val callback: () -> Unit) :
+        AtomicSceneFileStore by NioAtomicSceneFileStore {
+        private var called = false
+
+        override fun writeAndFlush(path: Path, bytes: ByteArray) {
+            NioAtomicSceneFileStore.writeAndFlush(path, bytes)
+            if (!called) {
+                called = true
+                callback()
+            }
+        }
+    }
 }
