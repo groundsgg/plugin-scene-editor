@@ -715,6 +715,57 @@ class EditorSessionServiceTest {
         )
     }
 
+    @Test
+    fun `preview snapshot is immutable and advances with document generation`() {
+        val service = EditorSessionService(binding)
+        service.open(world, binding.newDocument("grounds:preview"))
+        val before = requireNotNull(service.previewSnapshot(world))
+
+        assertTrue(service.mutate(world, createMarker(alice)).accepted)
+        service.select(world, alice, LocalId("marker"))
+        val after = requireNotNull(service.previewSnapshot(world))
+
+        assertEquals(0, before.generation)
+        assertTrue(before.document.elements.isEmpty())
+        assertTrue(before.selections.isEmpty())
+        assertEquals(1, after.generation)
+        assertEquals(LocalId("marker"), after.selections[alice]?.elementId)
+        assertEquals(setOf(world), service.openWorldIds())
+    }
+
+    @Test
+    fun `closing a world reports dirty editors and revokes all ephemeral state`() {
+        val service = EditorSessionService(binding)
+        service.open(world, binding.newDocument("grounds:closing"))
+        assertTrue(service.mutate(world, createMarker(alice)).accepted)
+        service.select(world, alice, LocalId("marker"))
+        service.deselect(world, alice)
+
+        val result = service.closeWorld(world) as SessionCloseResult.Closed
+
+        assertTrue(result.snapshot.dirty)
+        assertEquals(setOf(alice), result.snapshot.editorPlayers)
+        assertEquals(null, service.session(world))
+        assertEquals(null, service.selection(world, alice))
+        assertTrue(service.closeWorld(world) is SessionCloseResult.NotOpen)
+    }
+
+    @Test
+    fun `closing during an active save revokes replacement before the atomic move`() {
+        val root = Files.createTempDirectory("scene-close-save")
+        lateinit var service: EditorSessionService
+        val repository = WorldSceneRepository(root, CallbackStore { service.closeWorld(world) })
+        service = EditorSessionService(binding)
+        service.open(world, binding.newDocument("grounds:closing-save"))
+        assertTrue(service.mutate(world, createMarker(alice)).accepted)
+
+        val result = service.save(world, repository)
+
+        assertTrue(result is SceneSaveResult.StaleGeneration)
+        assertFalse(Files.exists(root.resolve("scene.json")))
+        assertEquals(null, service.session(world))
+    }
+
     private fun createMarker(actor: UUID) =
         SceneMutations.createProp(
             actor,

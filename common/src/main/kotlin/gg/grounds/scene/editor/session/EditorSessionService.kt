@@ -33,6 +33,7 @@ private constructor(
     @Suppress("UNUSED_PARAMETER") private val constructionToken: Unit,
 ) : SceneEditStatus {
     private val sessions = linkedMapOf<UUID, EditorSession>()
+    private val participants = linkedMapOf<UUID, LinkedHashSet<UUID>>()
     private val listeners = linkedSetOf<(SceneEditorEvent) -> Unit>()
     private val eventQueue = ArrayDeque<QueuedEvent>()
     private var drainingEvents = false
@@ -79,7 +80,10 @@ private constructor(
                 baseFingerprint,
             )
         return SessionOpenResult.Opened(
-            EditorSession(worldId, state).also { sessions[worldId] = it }
+            EditorSession(worldId, state).also {
+                sessions[worldId] = it
+                participants[worldId] = linkedSetOf()
+            }
         )
     }
 
@@ -165,6 +169,51 @@ private constructor(
     /** Immutable validation snapshot for adapters; session state itself never escapes common. */
     @Synchronized
     fun validation(worldId: UUID): SceneValidationState? = sessions[worldId]?.state?.validation
+
+    /**
+     * Immutable rendering snapshot. Paper may consume this without retaining mutable session state.
+     */
+    @Synchronized
+    fun previewSnapshot(worldId: UUID): SessionPreviewSnapshot? =
+        sessions[worldId]?.let { session ->
+            SessionPreviewSnapshot(
+                worldId = worldId,
+                document = session.state.document,
+                generation = session.state.generation,
+                selections = session.state.selections,
+            )
+        }
+
+    @Synchronized fun openWorldIds(): Set<UUID> = sessions.keys.toSet()
+
+    /**
+     * Terminates all ephemeral editor state for a world. A late save completion is harmless: its
+     * capability is revoked here and therefore cannot update a future session.
+     */
+    @Synchronized
+    fun closeWorld(worldId: UUID): SessionCloseResult {
+        val session = sessions.remove(worldId) ?: return SessionCloseResult.NotOpen
+        val dirty =
+            canonical(session.document)?.let { !session.state.matchesBaseCanonicalBytes(it) }
+                ?: true
+        saveReservations.remove(worldId)
+        reloadSnapshots.remove(worldId)
+        leases.releaseWorld(worldId)
+        return SessionCloseResult.Closed(
+            SessionCloseSnapshot(
+                worldId = worldId,
+                generation = session.state.generation,
+                dirty = dirty,
+                editorPlayers = participants.remove(worldId).orEmpty(),
+            )
+        )
+    }
+
+    @Synchronized
+    fun closeAll(): List<SessionCloseSnapshot> =
+        sessions.keys.toList().mapNotNull { worldId ->
+            (closeWorld(worldId) as? SessionCloseResult.Closed)?.snapshot
+        }
 
     @Synchronized
     fun prepareReload(worldId: UUID): ReloadPreparationResult {
@@ -309,6 +358,7 @@ private constructor(
                 }
         session.state =
             session.state.copy(selections = retained + (playerId to EditorSelection(elementId)))
+        participants.getOrPut(worldId, ::linkedSetOf) += playerId
         return selected
     }
 
@@ -365,6 +415,7 @@ private constructor(
                 when (val result = mutation.apply(session.document, catalogs)) {
                     is SceneMutationResult.Rejected -> rejected(session.document, result.reason)
                     is SceneMutationResult.Success -> {
+                        participants.getOrPut(worldId, ::linkedSetOf) += mutation.actor
                         transition(
                             session,
                             result.document,
@@ -614,6 +665,34 @@ private constructor(
     ) {
         internal fun matchesOwner(candidate: EditorSessionService) = owner === candidate
     }
+}
+
+class SessionPreviewSnapshot(
+    val worldId: UUID,
+    val document: SceneDocument,
+    val generation: Long,
+    selections: Map<UUID, EditorSelection>,
+) {
+    init {
+        require(generation >= 0) { "generation must be non-negative" }
+    }
+
+    val selections: Map<UUID, EditorSelection> = selections.toMap()
+}
+
+class SessionCloseSnapshot(
+    val worldId: UUID,
+    val generation: Long,
+    val dirty: Boolean,
+    editorPlayers: Set<UUID>,
+) {
+    val editorPlayers: Set<UUID> = editorPlayers.toSet()
+}
+
+sealed interface SessionCloseResult {
+    data class Closed(val snapshot: SessionCloseSnapshot) : SessionCloseResult
+
+    data object NotOpen : SessionCloseResult
 }
 
 sealed interface SessionOpenResult {

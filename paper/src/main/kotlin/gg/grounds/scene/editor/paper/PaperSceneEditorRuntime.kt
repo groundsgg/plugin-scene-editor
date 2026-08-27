@@ -5,7 +5,11 @@ import gg.grounds.scene.editor.SceneEditStatus
 import gg.grounds.scene.editor.catalog.SceneCatalogBinding
 import gg.grounds.scene.editor.paper.command.SceneCommand
 import gg.grounds.scene.editor.paper.command.SceneTabCompleter
+import gg.grounds.scene.editor.paper.preview.BukkitPreviewEntityFactory
+import gg.grounds.scene.editor.paper.preview.PaperPreviewAdapter
+import gg.grounds.scene.editor.paper.preview.PaperPreviewController
 import gg.grounds.scene.editor.session.EditorSessionService
+import org.bukkit.event.HandlerList
 import org.bukkit.plugin.ServicePriority
 import org.bukkit.plugin.java.JavaPlugin
 
@@ -14,6 +18,9 @@ class PaperSceneEditorRuntime(
     private val plugin: JavaPlugin,
     catalogFactory: () -> SceneCatalogBinding = SceneCatalogBinding::production,
     schedulerFactory: (JavaPlugin) -> PaperScheduler = ::PaperScheduler,
+    previewFactory: (JavaPlugin) -> PaperPreviewAdapter = {
+        PaperPreviewAdapter(BukkitPreviewEntityFactory(it))
+    },
     private val commandRegistrar: (SceneCommand, SceneTabCompleter) -> Unit =
         { command, completer ->
             plugin.getCommand("scene")?.let {
@@ -28,15 +35,13 @@ class PaperSceneEditorRuntime(
             plugin.logger.warning("Scene editor event failed: ${error.message}")
         }
     private val scheduler = schedulerFactory(plugin)
+    private val resolver = PaperSessionResolver()
+    private val previews = previewFactory(plugin)
+    private val previewController = PaperPreviewController(plugin, sessions, resolver, previews)
+    private val playerLifecycle = PaperPlayerLifecycleListener(sessions, previews)
+    private val worldLifecycle = PaperWorldLifecycleListener(plugin, sessions, previews)
     private val command =
-        SceneCommand(
-            plugin,
-            sessions,
-            catalogs,
-            PaperSessionResolver(),
-            scheduler,
-            AdventureSceneFeedback(),
-        )
+        SceneCommand(plugin, sessions, catalogs, resolver, scheduler, AdventureSceneFeedback())
 
     fun register() {
         check(plugin.server.servicesManager.getRegistration(BuildSystem::class.java) != null) {
@@ -45,18 +50,42 @@ class PaperSceneEditorRuntime(
         val services = plugin.server.servicesManager
         services.register(SceneEditStatus::class.java, sessions, plugin, ServicePriority.Normal)
         try {
+            plugin.server.pluginManager.registerEvents(playerLifecycle, plugin)
+            plugin.server.pluginManager.registerEvents(worldLifecycle, plugin)
+            previewController.start()
+            // Keep command registration last: it has no generic undo seam, so no later step may
+            // fail.
             commandRegistrar(command, SceneTabCompleter(command))
         } catch (error: Throwable) {
+            previewController.close()
+            HandlerList.unregisterAll(playerLifecycle)
+            HandlerList.unregisterAll(worldLifecycle)
+            previews.close()
             services.unregisterAll(plugin)
             throw error
         }
     }
 
     override fun close() {
+        var failure: Throwable? = null
+        fun attempt(block: () -> Unit) {
+            try {
+                block()
+            } catch (error: Throwable) {
+                val prior = failure
+                if (prior == null) failure = error else prior.addSuppressed(error)
+            }
+        }
         try {
-            scheduler.close()
+            attempt(previewController::close)
+            HandlerList.unregisterAll(playerLifecycle)
+            HandlerList.unregisterAll(worldLifecycle)
+            attempt(worldLifecycle::closeAll)
+            attempt(previews::close)
+            attempt(scheduler::close)
         } finally {
             plugin.server.servicesManager.unregisterAll(plugin)
         }
+        failure?.let { throw it }
     }
 }
