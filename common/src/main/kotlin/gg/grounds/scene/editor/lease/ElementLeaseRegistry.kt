@@ -79,6 +79,12 @@ class ElementLeaseRegistry(
         leases.remove(worldId to elementId)
     }
 
+    /** Releases every element lease in a world during an explicit session replacement. */
+    @Synchronized
+    fun releaseWorld(worldId: UUID) {
+        leases.entries.removeIf { (key, _) -> key.first == worldId }
+    }
+
     private fun active(key: Pair<UUID, LocalId>): ElementLease? {
         val lease = leases[key] ?: return null
         if (!clock.instant().isBefore(lease.expiresAt)) {

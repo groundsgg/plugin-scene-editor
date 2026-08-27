@@ -8,6 +8,8 @@ import gg.grounds.scene.editor.mutation.SceneMutationRejection
 import gg.grounds.scene.editor.mutation.SceneMutations
 import gg.grounds.scene.editor.repository.AtomicSceneFileStore
 import gg.grounds.scene.editor.repository.NioAtomicSceneFileStore
+import gg.grounds.scene.editor.repository.PathRejection
+import gg.grounds.scene.editor.repository.SceneFingerprint
 import gg.grounds.scene.editor.repository.SceneLoadResult
 import gg.grounds.scene.editor.repository.SceneSaveResult
 import gg.grounds.scene.editor.repository.WorldSceneRepository
@@ -404,6 +406,131 @@ class EditorSessionServiceTest {
         assertFalse(service.undo(world, 0))
         assertFalse(service.redo(world, -1))
         assertSame(original, service.session(world)!!.document)
+    }
+
+    @Test
+    fun `clean loaded replacement resets collaboration state and establishes exact persistence base`() {
+        val leases = ElementLeaseRegistry(Clock.systemUTC())
+        val service = EditorSessionService(binding, leases)
+        service.open(world, binding.newDocument("grounds:test"))
+        service.mutate(world, createMarker(alice))
+        service.select(world, alice, LocalId("marker"))
+        assertTrue(service.undo(world))
+        val generationBefore = service.session(world)!!.state.generation
+        val loadedDocument = binding.newDocument("grounds:reloaded")
+        val loadedBytes = gg.grounds.scene.format.SceneJson.encode(loadedDocument)
+        val bytes = (loadedBytes as gg.grounds.scene.format.SceneEncodeResult.Success).bytes
+        val loaded =
+            SceneLoadResult.Loaded(
+                loadedDocument,
+                SceneFingerprint.of(bytes) as SceneFingerprint.Present,
+                bytes,
+            )
+
+        val result = service.replaceFromLoad(world, loaded)
+
+        assertTrue(result is SessionReloadResult.Reloaded)
+        val state = service.session(world)!!.state
+        assertEquals(loadedDocument, state.document)
+        assertEquals(0, state.history.undoSize)
+        assertEquals(0, state.history.redoSize)
+        assertEquals(null, service.selection(world, alice))
+        assertFalse(leases.owner(world, LocalId("marker")).isPresent)
+        assertEquals(loaded.fingerprint, state.baseFingerprint)
+        assertEquals(generationBefore + 1, state.generation)
+        assertTrue(state.matchesBaseCanonicalBytes(bytes))
+        assertFalse(service.hasUnsavedChanges(world))
+        assertTrue(state.saveEligibility.isEligible)
+    }
+
+    @Test
+    fun `dirty replacement requires explicit typed discard and invalid loads stay structured`() {
+        val service = EditorSessionService(binding)
+        service.open(world, binding.newDocument("grounds:test"))
+        service.mutate(world, createMarker(alice))
+        val loadedDocument = binding.newDocument("grounds:reloaded")
+        val bytes =
+            (gg.grounds.scene.format.SceneJson.encode(loadedDocument)
+                    as gg.grounds.scene.format.SceneEncodeResult.Success)
+                .bytes
+        val loaded =
+            SceneLoadResult.Loaded(
+                loadedDocument,
+                SceneFingerprint.of(bytes) as SceneFingerprint.Present,
+                bytes,
+            )
+
+        assertTrue(
+            service.replaceFromLoad(world, loaded)
+                is SessionReloadResult.DiscardConfirmationRequired
+        )
+        val discarded = service.replaceFromLoad(world, loaded, ReloadPolicy.CONFIRMED_DISCARD)
+        assertTrue(discarded is SessionReloadResult.Reloaded)
+        assertTrue((discarded as SessionReloadResult.Reloaded).discardAudit != null)
+        assertTrue(
+            service.replaceFromLoad(world, SceneLoadResult.Absent)
+                is SessionReloadResult.LoadUnavailable
+        )
+        assertTrue(
+            service.replaceFromLoad(world, SceneLoadResult.Rejected(PathRejection.IO_FAILURE))
+                is SessionReloadResult.LoadUnavailable
+        )
+        assertTrue(
+            service.replaceFromLoad(
+                world,
+                SceneLoadResult.Invalid(
+                    bytes,
+                    emptyList(),
+                    SceneFingerprint.of(bytes) as SceneFingerprint.Present,
+                ),
+            ) is SessionReloadResult.LoadUnavailable
+        )
+    }
+
+    @Test
+    fun `reload refuses active save and lease status plus admin release are controlled`() {
+        val leases = ElementLeaseRegistry(Clock.systemUTC())
+        val service = EditorSessionService(binding, leases)
+        service.open(world, binding.newDocument("grounds:test"))
+        service.mutate(world, createMarker(alice))
+        service.select(world, alice, LocalId("marker"))
+        assertTrue(service.leaseStatus(world, LocalId("marker")) is LeaseStatusResult.Held)
+        assertTrue(service.releaseLease(world, LocalId("marker")) is LeaseReleaseResult.Released)
+        assertTrue(service.leaseStatus(world, LocalId("marker")) is LeaseStatusResult.Available)
+        assertEquals(null, service.selection(world, alice))
+        assertTrue(
+            service.releaseLease(world, LocalId("missing")) is LeaseReleaseResult.ElementNotFound
+        )
+        assertTrue(
+            service.leaseStatus(UUID(9, 9), LocalId("marker")) is LeaseStatusResult.NoSession
+        )
+    }
+
+    @Test
+    fun `replacement cannot invalidate an active save reservation`() {
+        val service = EditorSessionService(binding)
+        service.open(world, binding.newDocument("grounds:test"))
+        val loadedDocument = binding.newDocument("grounds:reloaded")
+        val bytes =
+            (gg.grounds.scene.format.SceneJson.encode(loadedDocument)
+                    as gg.grounds.scene.format.SceneEncodeResult.Success)
+                .bytes
+        val loaded =
+            SceneLoadResult.Loaded(
+                loadedDocument,
+                SceneFingerprint.of(bytes) as SceneFingerprint.Present,
+                bytes,
+            )
+        var replacement: SessionReloadResult? = null
+        val repository =
+            WorldSceneRepository(
+                Files.createTempDirectory("scene-reload-reservation"),
+                CallbackStore { replacement = service.replaceFromLoad(world, loaded) },
+            )
+
+        assertTrue(service.save(world, repository) is SceneSaveResult.Saved)
+        assertTrue(replacement is SessionReloadResult.SaveInProgress)
+        assertEquals("grounds:test", service.session(world)!!.document.id.value)
     }
 
     private fun createMarker(actor: UUID) =

@@ -10,6 +10,7 @@ import gg.grounds.scene.editor.mutation.SceneMutation
 import gg.grounds.scene.editor.mutation.SceneMutationRejection
 import gg.grounds.scene.editor.mutation.SceneMutationResult
 import gg.grounds.scene.editor.repository.SceneFingerprint
+import gg.grounds.scene.editor.repository.SceneLoadResult
 import gg.grounds.scene.editor.repository.SceneSaveResult
 import gg.grounds.scene.editor.repository.WorldSceneRepository
 import gg.grounds.scene.editor.validation.SaveEligibility
@@ -81,6 +82,78 @@ private constructor(
     }
 
     @Synchronized fun session(worldId: UUID): EditorSession? = sessions[worldId]
+
+    /** Immutable validation snapshot for adapters; session state itself never escapes common. */
+    @Synchronized
+    fun validation(worldId: UUID): SceneValidationState? = sessions[worldId]?.state?.validation
+
+    /**
+     * Replaces a world session only from a successfully decoded canonical scene. Dirty work is
+     * never discarded implicitly; adapters must pass the literal confirmed policy after their
+     * player-facing confirmation has completed.
+     */
+    @Synchronized
+    fun replaceFromLoad(
+        worldId: UUID,
+        load: SceneLoadResult,
+        policy: ReloadPolicy = ReloadPolicy.CLEAN_ONLY,
+    ): SessionReloadResult {
+        val session = sessions[worldId] ?: return SessionReloadResult.NoSession
+        if (saveReservations.containsKey(worldId)) return SessionReloadResult.SaveInProgress
+        val loaded =
+            load as? SceneLoadResult.Loaded ?: return SessionReloadResult.LoadUnavailable(load)
+        val dirty = hasUnsavedChanges(worldId)
+        if (dirty && policy != ReloadPolicy.CONFIRMED_DISCARD)
+            return SessionReloadResult.DiscardConfirmationRequired
+        val audit =
+            if (dirty)
+                DiscardAudit(
+                    worldId = worldId,
+                    discardedGeneration = session.state.generation,
+                    discardedFingerprint = session.state.baseFingerprint,
+                )
+            else null
+        leases.releaseWorld(worldId)
+        val validation = SceneValidationState.of(loaded.document, catalogs)
+        session.state =
+            SessionState(
+                document = loaded.document,
+                baseCanonicalBytes = loaded.canonicalBytes,
+                history = SceneHistory.empty(),
+                selections = emptyMap(),
+                generation = session.state.generation + 1,
+                validation = validation,
+                saveEligibility = SaveEligibility.from(validation),
+                baseFingerprint = loaded.fingerprint,
+            )
+        return SessionReloadResult.Reloaded(session, audit)
+    }
+
+    @Synchronized
+    fun leaseStatus(worldId: UUID, elementId: LocalId): LeaseStatusResult {
+        val session = sessions[worldId] ?: return LeaseStatusResult.NoSession
+        if (session.document.elements.none { it.id == elementId })
+            return LeaseStatusResult.ElementNotFound
+        val lease =
+            leases.lease(worldId, elementId).orElse(null) ?: return LeaseStatusResult.Available
+        return LeaseStatusResult.Held(lease)
+    }
+
+    /** Administrative release only; authorization belongs to the Paper adapter. */
+    @Synchronized
+    fun releaseLease(worldId: UUID, elementId: LocalId): LeaseReleaseResult {
+        val session = sessions[worldId] ?: return LeaseReleaseResult.NoSession
+        if (session.document.elements.none { it.id == elementId })
+            return LeaseReleaseResult.ElementNotFound
+        val lease =
+            leases.lease(worldId, elementId).orElse(null) ?: return LeaseReleaseResult.NotHeld
+        leases.releaseElement(worldId, elementId)
+        session.state =
+            session.state.copy(
+                selections = session.state.selections.filterValues { it.elementId != elementId }
+            )
+        return LeaseReleaseResult.Released(lease)
+    }
 
     @Synchronized
     fun addListener(listener: (SceneEditorEvent) -> Unit) {
@@ -418,6 +491,51 @@ sealed interface SessionOpenResult {
     data class Opened(val session: EditorSession) : SessionOpenResult
 
     data object EncodingFailure : SessionOpenResult
+}
+
+/** The only common-layer authorization to discard local dirty work. */
+enum class ReloadPolicy {
+    CLEAN_ONLY,
+    CONFIRMED_DISCARD,
+}
+
+data class DiscardAudit(
+    val worldId: UUID,
+    val discardedGeneration: Long,
+    val discardedFingerprint: SceneFingerprint,
+)
+
+sealed interface SessionReloadResult {
+    data class Reloaded(val session: EditorSession, val discardAudit: DiscardAudit?) :
+        SessionReloadResult
+
+    data object NoSession : SessionReloadResult
+
+    data object SaveInProgress : SessionReloadResult
+
+    data object DiscardConfirmationRequired : SessionReloadResult
+
+    data class LoadUnavailable(val load: SceneLoadResult) : SessionReloadResult
+}
+
+sealed interface LeaseStatusResult {
+    data class Held(val lease: gg.grounds.scene.editor.lease.ElementLease) : LeaseStatusResult
+
+    data object Available : LeaseStatusResult
+
+    data object ElementNotFound : LeaseStatusResult
+
+    data object NoSession : LeaseStatusResult
+}
+
+sealed interface LeaseReleaseResult {
+    data class Released(val lease: gg.grounds.scene.editor.lease.ElementLease) : LeaseReleaseResult
+
+    data object NotHeld : LeaseReleaseResult
+
+    data object ElementNotFound : LeaseReleaseResult
+
+    data object NoSession : LeaseReleaseResult
 }
 
 sealed interface SelectionResult {
