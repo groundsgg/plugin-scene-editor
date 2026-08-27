@@ -36,7 +36,7 @@ permissions:
   grounds.scene.redo:
     description: Redo scene edits
   grounds.scene.tool.give:
-    description: Receive the future editor tool
+    description: Receive the scene editor tool
   grounds.scene.save:
     description: Save scene changes to the current build world
   grounds.scene.recovery:
