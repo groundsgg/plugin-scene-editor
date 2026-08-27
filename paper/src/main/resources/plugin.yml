@@ -1,0 +1,31 @@
+name: GroundsSceneEditor
+version: ${VERSION}
+main: gg.grounds.scene.editor.paper.GroundsSceneEditorPlugin
+api-version: "26.1.2"
+description: "Paper scene authoring for Grounds build servers"
+authors: ["grounds"]
+depend: [BuildSystem]
+commands:
+  scene:
+    description: Author the scene for the current build world
+    usage: "/scene"
+permissions:
+  grounds.scene:
+    description: Use the scene editor
+    default: op
+    children:
+      grounds.scene.edit: true
+      grounds.scene.save: true
+      grounds.scene.recovery: true
+      grounds.scene.catalogs.status: true
+      grounds.scene.lease.override: true
+  grounds.scene.edit:
+    description: Create and edit scene elements
+  grounds.scene.save:
+    description: Save scene changes to the current build world
+  grounds.scene.recovery:
+    description: Recover or export invalid scene files
+  grounds.scene.catalogs.status:
+    description: Inspect scene catalog status
+  grounds.scene.lease.override:
+    description: Take over an editor lease
