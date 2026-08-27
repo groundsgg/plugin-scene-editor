@@ -2,6 +2,7 @@ package gg.grounds.scene.editor.paper.command
 
 import gg.grounds.scene.editor.catalog.SceneCatalogBinding
 import gg.grounds.scene.editor.paper.BuildWorldTarget
+import gg.grounds.scene.editor.paper.tool.EditorTool
 import gg.grounds.scene.editor.repository.WorldSceneRepository
 import gg.grounds.scene.editor.session.EditorSessionService
 import gg.grounds.scene.editor.session.ReloadPreparationResult
@@ -34,6 +35,7 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import org.bukkit.command.Command
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
+import org.bukkit.plugin.java.JavaPlugin
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -69,6 +71,27 @@ class SceneCommandAdapterTest {
 
         assertTrue(fixture.feedback.infos.single().contains("Asset catalog"))
         assertTrue(fixture.feedback.errors.single().contains("requires a player"))
+    }
+
+    @Test
+    fun `tool give does not invent a scene and gives the exact tagged item`() {
+        val fixture = fixture()
+        val tool = EditorTool(fixture.plugin)
+        val command =
+            SceneCommand(
+                fixture.plugin,
+                fixture.sessions,
+                fixture.catalogs,
+                SceneWorldResolver { BuildWorldTarget(fixture.worldId, fixture.root) },
+                SyncScheduler,
+                fixture.feedback,
+                tool,
+            )
+
+        command.execute(fixture.player, "tool", "give")
+
+        assertTrue(tool.isTool(fixture.player.inventory.contents.filterNotNull().single()))
+        assertNull(fixture.sessions.session(fixture.worldId))
     }
 
     @Test
@@ -345,7 +368,7 @@ class SceneCommandAdapterTest {
                 SyncScheduler,
                 feedback,
             )
-        return Fixture(command, sessions, catalogs, player, worldId, worldRoot, feedback)
+        return Fixture(plugin, command, sessions, catalogs, player, worldId, worldRoot, feedback)
     }
 
     private fun adapter(fixture: Fixture, scheduler: SceneCommandScheduler): SceneCommand =
@@ -427,6 +450,7 @@ class SceneCommandAdapterTest {
     }
 
     private data class Fixture(
+        val plugin: JavaPlugin,
         val command: SceneCommand,
         val sessions: EditorSessionService,
         val catalogs: SceneCatalogBinding,

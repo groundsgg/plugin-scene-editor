@@ -30,7 +30,8 @@ class PaperLifecycleListenerTest {
     fun `world change releases selection and old-world preview`() {
         val sessions = selectedSession()
         val previews = mock(PaperPreviewAdapter::class.java)
-        val listener = PaperPlayerLifecycleListener(sessions, previews)
+        val cleared = mutableListOf<UUID>()
+        val listener = PaperPlayerLifecycleListener(sessions, previews, cleared::add)
         val from = mock(World::class.java)
         `when`(from.uid).thenReturn(worldId)
         val player = mock(Player::class.java)
@@ -40,6 +41,7 @@ class PaperLifecycleListenerTest {
 
         assertEquals(null, sessions.selection(worldId, playerId))
         verify(previews).clearViewer(worldId, playerId)
+        assertEquals(listOf(playerId), cleared)
     }
 
     @Test

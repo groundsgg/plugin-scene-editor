@@ -8,6 +8,8 @@ import gg.grounds.scene.editor.paper.command.SceneTabCompleter
 import gg.grounds.scene.editor.paper.preview.BukkitPreviewEntityFactory
 import gg.grounds.scene.editor.paper.preview.PaperPreviewAdapter
 import gg.grounds.scene.editor.paper.preview.PaperPreviewController
+import gg.grounds.scene.editor.paper.tool.EditorTool
+import gg.grounds.scene.editor.paper.tool.EditorToolListener
 import gg.grounds.scene.editor.session.EditorSessionService
 import org.bukkit.event.HandlerList
 import org.bukkit.plugin.ServicePriority
@@ -38,10 +40,21 @@ class PaperSceneEditorRuntime(
     private val resolver = PaperSessionResolver()
     private val previews = previewFactory(plugin)
     private val previewController = PaperPreviewController(plugin, sessions, resolver, previews)
-    private val playerLifecycle = PaperPlayerLifecycleListener(sessions, previews)
+    private val editorTool = EditorTool(plugin)
+    private val toolListener = EditorToolListener(editorTool, sessions, catalogs, resolver)
+    private val playerLifecycle =
+        PaperPlayerLifecycleListener(sessions, previews, toolListener::clearPlayer)
     private val worldLifecycle = PaperWorldLifecycleListener(plugin, sessions, previews)
     private val command =
-        SceneCommand(plugin, sessions, catalogs, resolver, scheduler, AdventureSceneFeedback())
+        SceneCommand(
+            plugin,
+            sessions,
+            catalogs,
+            resolver,
+            scheduler,
+            AdventureSceneFeedback(),
+            editorTool,
+        )
 
     fun register() {
         check(plugin.server.servicesManager.getRegistration(BuildSystem::class.java) != null) {
@@ -52,6 +65,7 @@ class PaperSceneEditorRuntime(
         try {
             plugin.server.pluginManager.registerEvents(playerLifecycle, plugin)
             plugin.server.pluginManager.registerEvents(worldLifecycle, plugin)
+            plugin.server.pluginManager.registerEvents(toolListener, plugin)
             previewController.start()
             // Keep command registration last: it has no generic undo seam, so no later step may
             // fail.
@@ -60,6 +74,7 @@ class PaperSceneEditorRuntime(
             previewController.close()
             HandlerList.unregisterAll(playerLifecycle)
             HandlerList.unregisterAll(worldLifecycle)
+            HandlerList.unregisterAll(toolListener)
             previews.close()
             services.unregisterAll(plugin)
             throw error
@@ -80,6 +95,7 @@ class PaperSceneEditorRuntime(
             attempt(previewController::close)
             HandlerList.unregisterAll(playerLifecycle)
             HandlerList.unregisterAll(worldLifecycle)
+            HandlerList.unregisterAll(toolListener)
             attempt(worldLifecycle::closeAll)
             attempt(previews::close)
             attempt(scheduler::close)

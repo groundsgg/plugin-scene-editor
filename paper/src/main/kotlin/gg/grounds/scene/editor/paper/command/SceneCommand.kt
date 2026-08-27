@@ -3,6 +3,7 @@ package gg.grounds.scene.editor.paper.command
 import gg.grounds.scene.editor.catalog.SceneCatalogBinding
 import gg.grounds.scene.editor.mutation.PlayerPlacement
 import gg.grounds.scene.editor.mutation.SceneMutations
+import gg.grounds.scene.editor.paper.tool.EditorTool
 import gg.grounds.scene.editor.recovery.RecoveryService
 import gg.grounds.scene.editor.repository.WorldSceneRepository
 import gg.grounds.scene.editor.session.EditorSessionService
@@ -34,6 +35,7 @@ class SceneCommand(
     private val resolver: SceneWorldResolver,
     private val scheduler: SceneCommandScheduler,
     private val feedback: SceneCommandFeedback,
+    private val editorTool: EditorTool? = null,
 ) : CommandExecutor, TabExecutor {
     private val invalidSources =
         mutableMapOf<UUID, gg.grounds.scene.editor.repository.SceneLoadResult.Invalid>()
@@ -84,7 +86,11 @@ class SceneCommand(
             )
             return true
         }
-        if (path.first() != "create" && sessions.session(target.worldId) == null) {
+        if (
+            path.first() != "create" &&
+                route !is SceneCommandDispatcher.Route.ToolGive &&
+                sessions.session(target.worldId) == null
+        ) {
             bootstrapThenResume(player, command, label, args, target.worldId, target.worldFolder)
             return true
         }
@@ -97,8 +103,7 @@ class SceneCommand(
             SceneCommandDispatcher.Route.Undo,
             SceneCommandDispatcher.Route.Redo ->
                 historyChange(player, target.worldId, path.first(), args.getOrNull(1))
-            SceneCommandDispatcher.Route.ToolGive ->
-                feedback.info(player, "The editor tool is not available yet.")
+            SceneCommandDispatcher.Route.ToolGive -> giveTool(player)
             is SceneCommandDispatcher.Route.Element ->
                 element(player, target.worldId, path.first(), args)
             SceneCommandDispatcher.Route.LeaseStatus,
@@ -113,6 +118,19 @@ class SceneCommand(
             else -> feedback.error(player, "Unknown scene command. Use /scene for available paths.")
         }
         return true
+    }
+
+    private fun giveTool(player: Player) {
+        val available =
+            editorTool ?: return feedback.error(player, "The editor tool is unavailable.")
+        val item = available.createItem()
+        val leftovers = player.inventory.addItem(item)
+        leftovers.values.forEach { player.world.dropItemNaturally(player.location, it) }
+        feedback.info(
+            player,
+            if (leftovers.isEmpty()) "Scene editor tool added to your inventory."
+            else "Inventory full; scene editor tool dropped at your position.",
+        )
     }
 
     private fun bootstrapThenResume(
