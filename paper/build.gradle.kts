@@ -16,7 +16,9 @@ dependencies {
     implementation(project(":common"))
     compileOnly("de.eintosti:buildsystem-api:4.0.0")
 
-    testImplementation("org.junit.jupiter:junit-jupiter:5.11.3")
+    testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v26.1.2:4.114.0")
+    testImplementation("org.mockito:mockito-core:5.23.0")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.1.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
