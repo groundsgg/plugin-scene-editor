@@ -533,6 +533,65 @@ class EditorSessionServiceTest {
         assertEquals("grounds:test", service.session(world)!!.document.id.value)
     }
 
+    @Test
+    fun `initial open accepts loaded scenes and creates an absent scene without persisting it`() {
+        val service = EditorSessionService(binding)
+        val loadedDocument = binding.newDocument("grounds:loaded")
+        val bytes =
+            (gg.grounds.scene.format.SceneJson.encode(loadedDocument)
+                    as gg.grounds.scene.format.SceneEncodeResult.Success)
+                .bytes
+        val loaded =
+            SceneLoadResult.Loaded(
+                loadedDocument,
+                SceneFingerprint.of(bytes) as SceneFingerprint.Present,
+                bytes,
+            )
+
+        val loadedResult =
+            service.openFromLoad(world, loaded, binding.newDocument("grounds:unused"))
+
+        assertTrue(loadedResult is SessionBootstrapResult.Opened)
+        assertEquals(loadedDocument, service.session(world)!!.document)
+        assertEquals(loaded.fingerprint, service.session(world)!!.state.baseFingerprint)
+        val absentWorld = UUID(7, 7)
+        val initial = binding.newDocument("grounds:created")
+        assertTrue(
+            service.openFromLoad(absentWorld, SceneLoadResult.Absent, initial)
+                is SessionBootstrapResult.Opened
+        )
+        assertEquals(SceneFingerprint.Absent, service.session(absentWorld)!!.state.baseFingerprint)
+        assertFalse(service.hasUnsavedChanges(absentWorld))
+    }
+
+    @Test
+    fun `initial invalid load remains structured until common backup and create opens recovered scene`() {
+        val root = Files.createTempDirectory("scene-bootstrap-invalid")
+        val repository = WorldSceneRepository(root)
+        val invalid = "not json".encodeToByteArray()
+        root.resolve("scene.json").toFile().writeBytes(invalid)
+        val invalidLoad = repository.load() as SceneLoadResult.Invalid
+        val service = EditorSessionService(binding)
+        val replacement = binding.newDocument("grounds:recovered")
+
+        assertTrue(
+            service.openFromLoad(world, invalidLoad, replacement)
+                is SessionBootstrapResult.InvalidSource
+        )
+        val recovered = service.recoverInvalidAndOpen(world, invalidLoad, replacement, repository)
+
+        assertTrue(recovered is InvalidRecoveryOpenResult.Opened)
+        assertEquals(replacement, service.session(world)!!.document)
+        assertFalse(service.hasUnsavedChanges(world))
+        assertTrue(repository.load() is SceneLoadResult.Loaded)
+        assertEquals(
+            1,
+            Files.list(root).use { paths ->
+                paths.filter { path -> path.fileName.toString().endsWith(".bak") }.count()
+            },
+        )
+    }
+
     private fun createMarker(actor: UUID) =
         SceneMutations.createProp(
             actor,

@@ -9,6 +9,7 @@ import gg.grounds.scene.editor.lease.LeaseAcquisition
 import gg.grounds.scene.editor.mutation.SceneMutation
 import gg.grounds.scene.editor.mutation.SceneMutationRejection
 import gg.grounds.scene.editor.mutation.SceneMutationResult
+import gg.grounds.scene.editor.repository.RecoveryCreateResult
 import gg.grounds.scene.editor.repository.SceneFingerprint
 import gg.grounds.scene.editor.repository.SceneLoadResult
 import gg.grounds.scene.editor.repository.SceneSaveResult
@@ -82,6 +83,62 @@ private constructor(
     }
 
     @Synchronized fun session(worldId: UUID): EditorSession? = sessions[worldId]
+
+    /**
+     * Opens a previously unloaded world from the repository outcome. An absent source creates an
+     * in-memory initial document with an absent persistence base; it never writes a file. Invalid
+     * sources stay structured until [recoverInvalidAndOpen] performs the repository's atomic
+     * backup-and-create flow.
+     */
+    @Synchronized
+    fun openFromLoad(
+        worldId: UUID,
+        load: SceneLoadResult,
+        initialDocument: SceneDocument,
+    ): SessionBootstrapResult {
+        if (sessions.containsKey(worldId)) return SessionBootstrapResult.AlreadyOpen
+        return when (load) {
+            is SceneLoadResult.Loaded -> openBootstrap(worldId, load.document, load.fingerprint)
+            SceneLoadResult.Absent ->
+                openBootstrap(worldId, initialDocument, SceneFingerprint.Absent)
+            is SceneLoadResult.Invalid -> SessionBootstrapResult.InvalidSource(load)
+            is SceneLoadResult.Rejected -> SessionBootstrapResult.RejectedSource(load)
+        }
+    }
+
+    /** Reads a repository once then delegates to [openFromLoad] for a no-session world. */
+    fun openFromRepository(
+        worldId: UUID,
+        repository: WorldSceneRepository,
+        initialDocument: SceneDocument,
+    ): SessionBootstrapResult = openFromLoad(worldId, repository.load(), initialDocument)
+
+    /**
+     * The only session-level invalid-file recovery path. It asks the repository to copy the exact
+     * invalid bytes to a generated backup and atomically create [replacement], then opens the
+     * freshly reloaded scene. Paper must surface confirmation before calling this method.
+     */
+    fun recoverInvalidAndOpen(
+        worldId: UUID,
+        invalid: SceneLoadResult.Invalid,
+        replacement: SceneDocument,
+        repository: WorldSceneRepository,
+    ): InvalidRecoveryOpenResult {
+        synchronized(this) {
+            if (sessions.containsKey(worldId)) return InvalidRecoveryOpenResult.AlreadyOpen
+        }
+        return when (
+            val recovery = repository.backupInvalidAndCreate(invalid.fingerprint, replacement)
+        ) {
+            is RecoveryCreateResult.Created ->
+                when (val opened = openFromRepository(worldId, repository, replacement)) {
+                    is SessionBootstrapResult.Opened ->
+                        InvalidRecoveryOpenResult.Opened(opened.session, recovery.backup)
+                    else -> InvalidRecoveryOpenResult.OpenUnavailable(recovery.backup, opened)
+                }
+            else -> InvalidRecoveryOpenResult.RecoveryFailed(recovery)
+        }
+    }
 
     /** Immutable validation snapshot for adapters; session state itself never escapes common. */
     @Synchronized
@@ -412,6 +469,16 @@ private constructor(
     private fun rejected(document: SceneDocument, reason: SceneMutationRejection) =
         MutationOutcome.Rejected(SceneMutationResult.Rejected(document, reason))
 
+    private fun openBootstrap(
+        worldId: UUID,
+        document: SceneDocument,
+        fingerprint: SceneFingerprint,
+    ): SessionBootstrapResult =
+        when (val result = open(worldId, document, fingerprint)) {
+            is SessionOpenResult.Opened -> SessionBootstrapResult.Opened(result.session)
+            SessionOpenResult.EncodingFailure -> SessionBootstrapResult.EncodingFailure
+        }
+
     private fun canonical(document: SceneDocument): ByteArray? =
         (SceneJson.encode(document) as? SceneEncodeResult.Success)?.bytes
 
@@ -491,6 +558,31 @@ sealed interface SessionOpenResult {
     data class Opened(val session: EditorSession) : SessionOpenResult
 
     data object EncodingFailure : SessionOpenResult
+}
+
+sealed interface SessionBootstrapResult {
+    data class Opened(val session: EditorSession) : SessionBootstrapResult
+
+    data object AlreadyOpen : SessionBootstrapResult
+
+    data object EncodingFailure : SessionBootstrapResult
+
+    data class InvalidSource(val load: SceneLoadResult.Invalid) : SessionBootstrapResult
+
+    data class RejectedSource(val load: SceneLoadResult.Rejected) : SessionBootstrapResult
+}
+
+sealed interface InvalidRecoveryOpenResult {
+    data class Opened(val session: EditorSession, val backup: java.nio.file.Path) :
+        InvalidRecoveryOpenResult
+
+    data object AlreadyOpen : InvalidRecoveryOpenResult
+
+    data class RecoveryFailed(val recovery: RecoveryCreateResult) : InvalidRecoveryOpenResult
+
+    /** Backup succeeded, but a later read/open was unavailable; preserve its structured cause. */
+    data class OpenUnavailable(val backup: java.nio.file.Path, val result: SessionBootstrapResult) :
+        InvalidRecoveryOpenResult
 }
 
 /** The only common-layer authorization to discard local dirty work. */
