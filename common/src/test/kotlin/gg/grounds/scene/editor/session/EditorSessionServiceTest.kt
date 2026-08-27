@@ -565,6 +565,30 @@ class EditorSessionServiceTest {
     }
 
     @Test
+    fun `lazy initial open only opens an existing loaded source and leaves absent worlds unopened`() {
+        val service = EditorSessionService(binding)
+        val document = binding.newDocument("grounds:lazy")
+        val bytes =
+            (gg.grounds.scene.format.SceneJson.encode(document)
+                    as gg.grounds.scene.format.SceneEncodeResult.Success)
+                .bytes
+        val loaded =
+            SceneLoadResult.Loaded(
+                document,
+                SceneFingerprint.of(bytes) as SceneFingerprint.Present,
+                bytes,
+            )
+
+        assertTrue(service.openFromLoad(world, loaded) is SessionBootstrapResult.Opened)
+        val absentWorld = UUID(8, 8)
+        assertTrue(
+            service.openFromLoad(absentWorld, SceneLoadResult.Absent)
+                is SessionBootstrapResult.AbsentSource
+        )
+        assertEquals(null, service.session(absentWorld))
+    }
+
+    @Test
     fun `initial invalid load remains structured until common backup and create opens recovered scene`() {
         val root = Files.createTempDirectory("scene-bootstrap-invalid")
         val repository = WorldSceneRepository(root)

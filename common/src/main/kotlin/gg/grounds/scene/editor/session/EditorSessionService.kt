@@ -106,12 +106,33 @@ private constructor(
         }
     }
 
+    /**
+     * Lazy non-create opening. It opens only an existing valid source, leaving an absent world
+     * untouched so commands such as status, list, and select cannot invent a scene document.
+     */
+    @Synchronized
+    fun openFromLoad(worldId: UUID, load: SceneLoadResult): SessionBootstrapResult {
+        if (sessions.containsKey(worldId)) return SessionBootstrapResult.AlreadyOpen
+        return when (load) {
+            is SceneLoadResult.Loaded -> openBootstrap(worldId, load.document, load.fingerprint)
+            SceneLoadResult.Absent -> SessionBootstrapResult.AbsentSource
+            is SceneLoadResult.Invalid -> SessionBootstrapResult.InvalidSource(load)
+            is SceneLoadResult.Rejected -> SessionBootstrapResult.RejectedSource(load)
+        }
+    }
+
     /** Reads a repository once then delegates to [openFromLoad] for a no-session world. */
     fun openFromRepository(
         worldId: UUID,
         repository: WorldSceneRepository,
         initialDocument: SceneDocument,
     ): SessionBootstrapResult = openFromLoad(worldId, repository.load(), initialDocument)
+
+    /** Lazy repository variant for non-create commands. */
+    fun openFromRepository(
+        worldId: UUID,
+        repository: WorldSceneRepository,
+    ): SessionBootstrapResult = openFromLoad(worldId, repository.load())
 
     /**
      * The only session-level invalid-file recovery path. It asks the repository to copy the exact
@@ -566,6 +587,8 @@ sealed interface SessionBootstrapResult {
     data object AlreadyOpen : SessionBootstrapResult
 
     data object EncodingFailure : SessionBootstrapResult
+
+    data object AbsentSource : SessionBootstrapResult
 
     data class InvalidSource(val load: SceneLoadResult.Invalid) : SessionBootstrapResult
 
