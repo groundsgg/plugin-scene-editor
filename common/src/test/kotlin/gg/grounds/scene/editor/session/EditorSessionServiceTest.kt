@@ -427,7 +427,7 @@ class EditorSessionServiceTest {
                 bytes,
             )
 
-        val result = service.replaceFromLoad(world, loaded)
+        val result = service.replaceFromLoad(world, loaded, preparedReload(service))
 
         assertTrue(result is SessionReloadResult.Reloaded)
         val state = service.session(world)!!.state
@@ -460,20 +460,39 @@ class EditorSessionServiceTest {
                 bytes,
             )
 
+        val confirmationSnapshot = preparedReload(service)
         assertTrue(
-            service.replaceFromLoad(world, loaded)
+            service.replaceFromLoad(world, loaded, confirmationSnapshot)
                 is SessionReloadResult.DiscardConfirmationRequired
         )
-        val discarded = service.replaceFromLoad(world, loaded, ReloadPolicy.CONFIRMED_DISCARD)
+        assertTrue(
+            service.replaceFromLoad(
+                world,
+                loaded,
+                confirmationSnapshot,
+                ReloadPolicy.CONFIRMED_DISCARD,
+            ) is SessionReloadResult.StaleSession
+        )
+        val confirmedSnapshot = preparedReload(service)
+        val discarded =
+            service.replaceFromLoad(
+                world,
+                loaded,
+                confirmedSnapshot,
+                ReloadPolicy.CONFIRMED_DISCARD,
+            )
         assertTrue(discarded is SessionReloadResult.Reloaded)
         assertTrue((discarded as SessionReloadResult.Reloaded).discardAudit != null)
         assertTrue(
-            service.replaceFromLoad(world, SceneLoadResult.Absent)
+            service.replaceFromLoad(world, SceneLoadResult.Absent, preparedReload(service))
                 is SessionReloadResult.LoadUnavailable
         )
         assertTrue(
-            service.replaceFromLoad(world, SceneLoadResult.Rejected(PathRejection.IO_FAILURE))
-                is SessionReloadResult.LoadUnavailable
+            service.replaceFromLoad(
+                world,
+                SceneLoadResult.Rejected(PathRejection.IO_FAILURE),
+                preparedReload(service),
+            ) is SessionReloadResult.LoadUnavailable
         )
         assertTrue(
             service.replaceFromLoad(
@@ -483,6 +502,7 @@ class EditorSessionServiceTest {
                     emptyList(),
                     SceneFingerprint.of(bytes) as SceneFingerprint.Present,
                 ),
+                preparedReload(service),
             ) is SessionReloadResult.LoadUnavailable
         )
     }
@@ -522,16 +542,95 @@ class EditorSessionServiceTest {
                 bytes,
             )
         var replacement: SessionReloadResult? = null
+        var preparation: ReloadPreparationResult? = null
+        val snapshot = preparedReload(service)
         val repository =
             WorldSceneRepository(
                 Files.createTempDirectory("scene-reload-reservation"),
-                CallbackStore { replacement = service.replaceFromLoad(world, loaded) },
+                CallbackStore {
+                    replacement = service.replaceFromLoad(world, loaded, snapshot)
+                    preparation = service.prepareReload(world)
+                },
             )
 
         assertTrue(service.save(world, repository) is SceneSaveResult.Saved)
         assertTrue(replacement is SessionReloadResult.SaveInProgress)
+        assertTrue(preparation is ReloadPreparationResult.SaveInProgress)
         assertEquals("grounds:test", service.session(world)!!.document.id.value)
     }
+
+    @Test
+    fun `reload snapshot refuses an asynchronously loaded document after a newer mutation`() {
+        val service = EditorSessionService(binding)
+        service.open(world, binding.newDocument("grounds:test"))
+        val snapshot = (service.prepareReload(world) as ReloadPreparationResult.Prepared).snapshot
+        assertTrue(service.mutate(world, createMarker(alice)).accepted)
+        val loaded = loaded("grounds:reloaded")
+
+        val result =
+            service.replaceFromLoad(world, loaded, snapshot, ReloadPolicy.CONFIRMED_DISCARD)
+
+        assertTrue(result is SessionReloadResult.StaleSession)
+        assertEquals("grounds:test", service.session(world)!!.document.id.value)
+        assertTrue(service.session(world)!!.document.elements.any { it.id == LocalId("marker") })
+    }
+
+    @Test
+    fun `reload snapshot refuses an older base after a save completes`() {
+        val service = EditorSessionService(binding)
+        service.open(world, binding.newDocument("grounds:test"))
+        val snapshot = (service.prepareReload(world) as ReloadPreparationResult.Prepared).snapshot
+        assertTrue(
+            service.save(
+                world,
+                WorldSceneRepository(Files.createTempDirectory("reload-stale-save")),
+            ) is SceneSaveResult.Saved
+        )
+
+        val result = service.replaceFromLoad(world, loaded("grounds:reloaded"), snapshot)
+
+        assertTrue(result is SessionReloadResult.StaleSession)
+        assertEquals("grounds:test", service.session(world)!!.document.id.value)
+    }
+
+    @Test
+    fun `reload snapshot is bound to its owning service and exact world`() {
+        val first = EditorSessionService(binding)
+        val second = EditorSessionService(binding)
+        val otherWorld = UUID(6, 6)
+        first.open(world, binding.newDocument("grounds:first"))
+        first.open(otherWorld, binding.newDocument("grounds:other"))
+        second.open(world, binding.newDocument("grounds:second"))
+        val firstSnapshot = preparedReload(first)
+
+        assertTrue(
+            second.replaceFromLoad(world, loaded("grounds:replacement"), firstSnapshot)
+                is SessionReloadResult.StaleSession
+        )
+        assertTrue(
+            first.replaceFromLoad(otherWorld, loaded("grounds:replacement"), firstSnapshot)
+                is SessionReloadResult.StaleSession
+        )
+        assertEquals("grounds:first", first.session(world)!!.document.id.value)
+        assertEquals("grounds:other", first.session(otherWorld)!!.document.id.value)
+        assertEquals("grounds:second", second.session(world)!!.document.id.value)
+    }
+
+    private fun loaded(id: String): SceneLoadResult.Loaded {
+        val document = binding.newDocument(id)
+        val bytes =
+            (gg.grounds.scene.format.SceneJson.encode(document)
+                    as gg.grounds.scene.format.SceneEncodeResult.Success)
+                .bytes
+        return SceneLoadResult.Loaded(
+            document,
+            SceneFingerprint.of(bytes) as SceneFingerprint.Present,
+            bytes,
+        )
+    }
+
+    private fun preparedReload(service: EditorSessionService): EditorSessionService.ReloadSnapshot =
+        (service.prepareReload(world) as ReloadPreparationResult.Prepared).snapshot
 
     @Test
     fun `initial open accepts loaded scenes and creates an absent scene without persisting it`() {

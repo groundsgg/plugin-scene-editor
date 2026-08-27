@@ -37,6 +37,7 @@ private constructor(
     private val eventQueue = ArrayDeque<QueuedEvent>()
     private var drainingEvents = false
     private val saveReservations = linkedMapOf<UUID, SaveReservation>()
+    private val reloadSnapshots = linkedMapOf<UUID, ReloadSnapshot>()
 
     constructor(
         catalogs: SceneCatalogBinding,
@@ -165,19 +166,47 @@ private constructor(
     @Synchronized
     fun validation(worldId: UUID): SceneValidationState? = sessions[worldId]?.state?.validation
 
+    @Synchronized
+    fun prepareReload(worldId: UUID): ReloadPreparationResult {
+        val session = sessions[worldId] ?: return ReloadPreparationResult.NoSession
+        if (saveReservations.containsKey(worldId)) return ReloadPreparationResult.SaveInProgress
+        val snapshot =
+            ReloadSnapshot(
+                this,
+                UUID.randomUUID(),
+                worldId,
+                session.state.generation,
+                session.state.baseFingerprint,
+            )
+        reloadSnapshots[worldId] = snapshot
+        return ReloadPreparationResult.Prepared(snapshot)
+    }
+
     /**
-     * Replaces a world session only from a successfully decoded canonical scene. Dirty work is
-     * never discarded implicitly; adapters must pass the literal confirmed policy after their
-     * player-facing confirmation has completed.
+     * Installs only a load prepared by [prepareReload]. This prevents an asynchronous disk read
+     * from replacing edits or a persistence base which changed after the read was started.
      */
     @Synchronized
     fun replaceFromLoad(
         worldId: UUID,
         load: SceneLoadResult,
+        snapshot: ReloadSnapshot,
         policy: ReloadPolicy = ReloadPolicy.CLEAN_ONLY,
     ): SessionReloadResult {
         val session = sessions[worldId] ?: return SessionReloadResult.NoSession
+        if (
+            reloadSnapshots[worldId] !== snapshot ||
+                !snapshot.matchesOwner(this) ||
+                snapshot.worldId != worldId
+        )
+            return SessionReloadResult.StaleSession
+        reloadSnapshots.remove(worldId)
         if (saveReservations.containsKey(worldId)) return SessionReloadResult.SaveInProgress
+        if (
+            session.state.generation != snapshot.generation ||
+                session.state.baseFingerprint != snapshot.baseFingerprint
+        )
+            return SessionReloadResult.StaleSession
         val loaded =
             load as? SceneLoadResult.Loaded ?: return SessionReloadResult.LoadUnavailable(load)
         val dirty = hasUnsavedChanges(worldId)
@@ -573,6 +602,18 @@ private constructor(
 
         internal fun matchesOwner(candidate: EditorSessionService) = owner === candidate
     }
+
+    /** Opaque, single-use reload capability bound to a service instance and session base. */
+    class ReloadSnapshot
+    internal constructor(
+        private val owner: EditorSessionService,
+        @Suppress("unused") private val token: UUID,
+        val worldId: UUID,
+        val generation: Long,
+        val baseFingerprint: SceneFingerprint,
+    ) {
+        internal fun matchesOwner(candidate: EditorSessionService) = owner === candidate
+    }
 }
 
 sealed interface SessionOpenResult {
@@ -628,9 +669,20 @@ sealed interface SessionReloadResult {
 
     data object SaveInProgress : SessionReloadResult
 
+    /** The world changed after its asynchronous reload read began. */
+    data object StaleSession : SessionReloadResult
+
     data object DiscardConfirmationRequired : SessionReloadResult
 
     data class LoadUnavailable(val load: SceneLoadResult) : SessionReloadResult
+}
+
+sealed interface ReloadPreparationResult {
+    data class Prepared(val snapshot: EditorSessionService.ReloadSnapshot) : ReloadPreparationResult
+
+    data object NoSession : ReloadPreparationResult
+
+    data object SaveInProgress : ReloadPreparationResult
 }
 
 sealed interface LeaseStatusResult {
