@@ -12,6 +12,10 @@ enum class SceneMutationRejection {
     INVALID_SCALE,
     INTRINSIC_INVALID,
     READ_ONLY_APPLICATION_ACTION,
+    SELECTION_REQUIRED,
+    SELECTION_MISMATCH,
+    LEASE_REQUIRED,
+    LEASE_HELD_BY_OTHER,
 }
 
 sealed interface SceneMutationResult {
