@@ -1,0 +1,103 @@
+name: GroundsSceneEditor
+version: ${VERSION}
+main: gg.grounds.scene.editor.paper.GroundsSceneEditorPlugin
+api-version: "26.1.2"
+description: "Paper scene authoring for Grounds build servers"
+authors: ["grounds"]
+depend: [BuildSystem]
+commands:
+  scene:
+    description: Author the scene for the current build world
+    usage: "/scene"
+permissions:
+  grounds.scene:
+    description: Use the scene editor
+    default: op
+    children:
+      grounds.scene.edit: true
+      grounds.scene.save: true
+      grounds.scene.recovery: true
+      grounds.scene.catalogs.status: true
+      grounds.scene.lease.override: true
+  grounds.scene.edit:
+    description: Create and edit scene elements
+  grounds.scene.create:
+    description: Create a scene document
+  grounds.scene.info:
+    description: Inspect an open scene
+  grounds.scene.validate:
+    description: Validate an open scene
+  grounds.scene.reload:
+    description: Reload a scene from disk
+  grounds.scene.history:
+    description: Inspect scene history
+  grounds.scene.undo:
+    description: Undo scene edits
+  grounds.scene.redo:
+    description: Redo scene edits
+  grounds.scene.tool.give:
+    description: Receive the scene editor tool
+  grounds.scene.save:
+    description: Save scene changes to the current build world
+  grounds.scene.recovery:
+    description: Recover or export invalid scene files
+  grounds.scene.recovery.backup-and-create:
+    description: Back up invalid source and create a scene
+  grounds.scene.recovery.export:
+    description: Export scene diagnostics
+  grounds.scene.recovery.discard-and-reload:
+    description: Discard local edits after confirmation
+  grounds.scene.catalogs.status:
+    description: Inspect scene catalog status
+  grounds.scene.lease.override:
+    description: Take over an editor lease
+  grounds.scene.lease.status:
+    description: Inspect an editor lease
+  grounds.scene.lease.release:
+    description: Release an owned editor lease
+  grounds.scene.prop.list:
+    description: List props
+  grounds.scene.prop.create:
+    description: Create props
+  grounds.scene.prop.select:
+    description: Select props
+  grounds.scene.prop.position.set:
+    description: Set prop position
+  grounds.scene.prop.position.here:
+    description: Place a prop at the editor
+  grounds.scene.prop.position.add:
+    description: Offset prop position
+  grounds.scene.prop.rotation.set:
+    description: Set prop rotation
+  grounds.scene.prop.rotation.add:
+    description: Offset prop rotation
+  grounds.scene.prop.scale.set:
+    description: Scale props
+  grounds.scene.prop.clone:
+    description: Clone props
+  grounds.scene.prop.remove:
+    description: Remove props
+  grounds.scene.npc.list:
+    description: List NPCs
+  grounds.scene.npc.create:
+    description: Create NPCs
+  grounds.scene.npc.select:
+    description: Select NPCs
+  grounds.scene.npc.position.set:
+    description: Set NPC position
+  grounds.scene.npc.position.here:
+    description: Place an NPC at the editor
+  grounds.scene.npc.position.add:
+    description: Offset NPC position
+  grounds.scene.npc.rotation.set:
+    description: Set NPC rotation
+  grounds.scene.npc.rotation.add:
+    description: Offset NPC rotation
+  grounds.scene.npc.scale.set:
+    description: Scale NPCs
+  grounds.scene.npc.label.set:
+    description: Change NPC labels
+  grounds.scene.npc.clone:
+    description: Clone NPCs
+  grounds.scene.npc.remove:
+    description: Remove NPCs

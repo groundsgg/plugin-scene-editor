@@ -1,0 +1,10 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "package-name": "plugin-scene-editor",
+      "include-v-in-tag": true,
+      "include-component-in-tag": false
+    }
+  }
+}
