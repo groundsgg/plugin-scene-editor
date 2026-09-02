@@ -376,7 +376,9 @@ class EditorSessionServiceTest {
         val saved = (decoded as SceneDecodeResult.Success).scene
         assertEquals("1", saved.catalogs.actions.version)
         assertTrue(catalogs.status(saved).isVerified)
-        assertTrue((saved.elements.single() as gg.grounds.scene.format.Prop).initialAnimation == null)
+        assertTrue(
+            (saved.elements.single() as gg.grounds.scene.format.Prop).initialAnimation == null
+        )
     }
 
     @Test
