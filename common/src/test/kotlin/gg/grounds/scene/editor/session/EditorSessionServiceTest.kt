@@ -341,6 +341,45 @@ class EditorSessionServiceTest {
     }
 
     @Test
+    fun `legacy action pin survives open edit save and decode`() {
+        val catalogs = SceneCatalogBinding.production()
+        val service = EditorSessionService(catalogs)
+        val fresh = catalogs.newDocument("grounds:legacy")
+        val legacy =
+            SceneDocument(
+                fresh.schemaVersion,
+                fresh.id,
+                fresh.metadata,
+                SceneCatalogReferences(
+                    fresh.catalogs.assets,
+                    CatalogReference(CatalogId("grounds:actions"), "1"),
+                ),
+                fresh.groups,
+                fresh.elements,
+            )
+        val repository = WorldSceneRepository(Files.createTempDirectory("legacy-round-trip"))
+        service.open(world, legacy)
+        assertTrue(service.mutate(world, createMarker(alice)).accepted)
+        assertTrue(service.select(world, alice, LocalId("marker")) is SelectionResult.Selected)
+        assertTrue(
+            service
+                .mutate(
+                    world,
+                    SceneMutations.setPosition(alice, LocalId("marker"), Vec3(4.0, 0.0, 0.0)),
+                )
+                .accepted
+        )
+        assertTrue(service.save(world, repository) is SceneSaveResult.Saved)
+
+        val decoded = SceneJson.decode(Files.readAllBytes(repository.scenePath()))
+        assertTrue(decoded is SceneDecodeResult.Success)
+        val saved = (decoded as SceneDecodeResult.Success).scene
+        assertEquals("1", saved.catalogs.actions.version)
+        assertTrue(catalogs.status(saved).isVerified)
+        assertTrue((saved.elements.single() as gg.grounds.scene.format.Prop).initialAnimation == null)
+    }
+
+    @Test
     fun `unverified navigator arguments remain serialized through unrelated transform edit`() {
         val catalogs = SceneCatalogBinding.production()
         val arguments =

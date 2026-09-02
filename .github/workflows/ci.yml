@@ -9,3 +9,5 @@ on:
 jobs:
   reusable:
     uses: groundsgg/.github/.github/workflows/gradle-ci.yml@main
+    secrets:
+      PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
