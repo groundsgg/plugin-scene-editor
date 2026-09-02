@@ -13,6 +13,7 @@ import gg.grounds.scene.editor.repository.SceneFingerprint
 import gg.grounds.scene.editor.repository.SceneLoadResult
 import gg.grounds.scene.editor.repository.SceneSaveResult
 import gg.grounds.scene.editor.repository.WorldSceneRepository
+import gg.grounds.scene.format.ApplicationAction
 import gg.grounds.scene.format.AssetCatalog
 import gg.grounds.scene.format.AssetDefinition
 import gg.grounds.scene.format.AssetKey
@@ -21,8 +22,15 @@ import gg.grounds.scene.format.CatalogId
 import gg.grounds.scene.format.CatalogReference
 import gg.grounds.scene.format.CatalogVersionRange
 import gg.grounds.scene.format.LocalId
+import gg.grounds.scene.format.LookBehavior
+import gg.grounds.scene.format.Npc
 import gg.grounds.scene.format.SceneCatalogReferences
+import gg.grounds.scene.format.SceneDecodeResult
 import gg.grounds.scene.format.SceneDocument
+import gg.grounds.scene.format.SceneEncodeResult
+import gg.grounds.scene.format.SceneJson
+import gg.grounds.scene.format.SceneTrigger
+import gg.grounds.scene.format.TriggerBinding
 import gg.grounds.scene.format.Vec3
 import java.nio.file.Files
 import java.nio.file.Path
@@ -302,6 +310,101 @@ class EditorSessionServiceTest {
             service.save(world, WorldSceneRepository(Files.createTempDirectory("scene-ineligible")))
 
         assertTrue(result is SceneSaveResult.Ineligible)
+    }
+
+    @Test
+    fun `current navigator pin survives an unrelated transform edit and save decode`() {
+        val catalogs = SceneCatalogBinding.production()
+        val service = EditorSessionService(catalogs)
+        val document = navigatorDocument(catalogs, emptyMap())
+        val repository = WorldSceneRepository(Files.createTempDirectory("navigator-round-trip"))
+        service.open(world, document)
+        assertTrue(service.select(world, alice, LocalId("guide")) is SelectionResult.Selected)
+        assertTrue(
+            service
+                .mutate(
+                    world,
+                    SceneMutations.setPosition(alice, LocalId("guide"), Vec3(4.0, 0.0, 0.0)),
+                )
+                .accepted
+        )
+        assertTrue(service.save(world, repository) is SceneSaveResult.Saved)
+
+        val decoded = SceneJson.decode(Files.readAllBytes(repository.scenePath()))
+        assertTrue(decoded is SceneDecodeResult.Success)
+        val saved = (decoded as SceneDecodeResult.Success).scene
+        assertEquals("2", saved.catalogs.actions.version)
+        assertEquals(
+            ApplicationAction(gg.grounds.lobby.scene.LobbySceneCatalogs.OPEN_NAVIGATOR, emptyMap()),
+            navigatorAction(saved),
+        )
+    }
+
+    @Test
+    fun `legacy action pin survives open edit save and decode`() {
+        val catalogs = SceneCatalogBinding.production()
+        val service = EditorSessionService(catalogs)
+        val fresh = catalogs.newDocument("grounds:legacy")
+        val legacy =
+            SceneDocument(
+                fresh.schemaVersion,
+                fresh.id,
+                fresh.metadata,
+                SceneCatalogReferences(
+                    fresh.catalogs.assets,
+                    CatalogReference(CatalogId("grounds:actions"), "1"),
+                ),
+                fresh.groups,
+                fresh.elements,
+            )
+        val repository = WorldSceneRepository(Files.createTempDirectory("legacy-round-trip"))
+        service.open(world, legacy)
+        assertTrue(service.mutate(world, createMarker(alice)).accepted)
+        assertTrue(service.select(world, alice, LocalId("marker")) is SelectionResult.Selected)
+        assertTrue(
+            service
+                .mutate(
+                    world,
+                    SceneMutations.setPosition(alice, LocalId("marker"), Vec3(4.0, 0.0, 0.0)),
+                )
+                .accepted
+        )
+        assertTrue(service.save(world, repository) is SceneSaveResult.Saved)
+
+        val decoded = SceneJson.decode(Files.readAllBytes(repository.scenePath()))
+        assertTrue(decoded is SceneDecodeResult.Success)
+        val saved = (decoded as SceneDecodeResult.Success).scene
+        assertEquals("1", saved.catalogs.actions.version)
+        assertTrue(catalogs.status(saved).isVerified)
+        assertTrue(
+            (saved.elements.single() as gg.grounds.scene.format.Prop).initialAnimation == null
+        )
+    }
+
+    @Test
+    fun `unverified navigator arguments remain serialized through unrelated transform edit`() {
+        val catalogs = SceneCatalogBinding.production()
+        val arguments =
+            mapOf(LocalId("unexpected") to gg.grounds.scene.format.StringArgument("value"))
+        val service = EditorSessionService(catalogs)
+        val document = navigatorDocument(catalogs, arguments)
+        service.open(world, document)
+        assertFalse(catalogs.actionsVerified(document))
+        assertTrue(service.select(world, alice, LocalId("guide")) is SelectionResult.Selected)
+        assertTrue(
+            service
+                .mutate(
+                    world,
+                    SceneMutations.setPosition(alice, LocalId("guide"), Vec3(4.0, 0.0, 0.0)),
+                )
+                .accepted
+        )
+
+        val bytes =
+            (SceneJson.encode(service.session(world)!!.document) as SceneEncodeResult.Success).bytes
+        val decoded = SceneJson.decode(bytes) as SceneDecodeResult.Success
+        assertEquals(arguments, navigatorAction(decoded.scene).arguments)
+        assertFalse(catalogs.actionsVerified(decoded.scene))
     }
 
     @Test
@@ -628,6 +731,55 @@ class EditorSessionServiceTest {
             bytes,
         )
     }
+
+    private fun navigatorDocument(
+        catalogs: SceneCatalogBinding,
+        arguments: Map<LocalId, gg.grounds.scene.format.ApplicationArgument>,
+    ): SceneDocument {
+        val base = catalogs.newDocument("grounds:navigator")
+        val navigator =
+            ApplicationAction(gg.grounds.lobby.scene.LobbySceneCatalogs.OPEN_NAVIGATOR, arguments)
+        val npc =
+            Npc(
+                LocalId("guide"),
+                null,
+                gg.grounds.scene.format.Transform(
+                    Vec3(0.0, 0.0, 0.0),
+                    gg.grounds.scene.format.EulerRotation(0.0, 0.0, 0.0),
+                    Vec3(1.0, 1.0, 1.0),
+                ),
+                body = gg.grounds.scene.format.AssetKey("grounds:editor/guide"),
+                label = null,
+                labelOffset = Vec3(0.0, 2.25, 0.0),
+                look = LookBehavior.Fixed,
+                initialAnimation = null,
+                interactionBounds =
+                    gg.grounds.scene.format.LocalBounds(Vec3(-0.3, 0.0, -0.3), Vec3(0.3, 1.8, 0.3)),
+                proximity = null,
+                bindings =
+                    listOf(
+                        TriggerBinding(
+                            SceneTrigger.LEFT_CLICK,
+                            emptyList(),
+                            0,
+                            0,
+                            listOf(navigator),
+                        )
+                    ),
+            )
+        return SceneDocument(
+            base.schemaVersion,
+            base.id,
+            base.metadata,
+            base.catalogs,
+            base.groups,
+            listOf(npc),
+        )
+    }
+
+    private fun navigatorAction(document: SceneDocument): ApplicationAction =
+        ((document.elements.single() as Npc).bindings.single().actions.single()
+            as ApplicationAction)
 
     private fun preparedReload(service: EditorSessionService): EditorSessionService.ReloadSnapshot =
         (service.prepareReload(world) as ReloadPreparationResult.Prepared).snapshot
