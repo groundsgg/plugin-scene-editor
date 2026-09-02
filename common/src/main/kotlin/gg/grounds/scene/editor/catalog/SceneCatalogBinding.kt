@@ -1,10 +1,10 @@
 package gg.grounds.scene.editor.catalog
 
+import gg.grounds.lobby.scene.LobbySceneCatalogs
 import gg.grounds.resourcepacks.catalog.GroundsAssetCatalog
 import gg.grounds.scene.format.ActionCatalog
 import gg.grounds.scene.format.ApplicationAction
 import gg.grounds.scene.format.AssetCatalog
-import gg.grounds.scene.format.CatalogId
 import gg.grounds.scene.format.CatalogReference
 import gg.grounds.scene.format.Npc
 import gg.grounds.scene.format.SceneCatalogReferences
@@ -15,7 +15,21 @@ import gg.grounds.scene.format.SceneValidation
 import gg.grounds.scene.format.SceneValidationResult
 
 /** Immutable classpath catalog snapshot used by a scene-editor runtime. */
-class SceneCatalogBinding(val assets: AssetCatalog, val actions: ActionCatalog) {
+class SceneCatalogBinding
+private constructor(
+    val assets: AssetCatalog,
+    val actions: ActionCatalog,
+    private val actionResolver: (CatalogReference) -> ActionCatalog?,
+) {
+    constructor(
+        assets: AssetCatalog,
+        actions: ActionCatalog,
+    ) : this(
+        assets,
+        actions,
+        { reference -> actions.takeIf { it.id == reference.id && it.version == reference.version } },
+    )
+
     val references: SceneCatalogReferences =
         SceneCatalogReferences(
             CatalogReference(assets.id, assets.version),
@@ -30,12 +44,15 @@ class SceneCatalogBinding(val assets: AssetCatalog, val actions: ActionCatalog) 
 
     fun status(document: SceneDocument): CatalogStatus {
         val intrinsic = SceneValidation.validateIntrinsic(document)
+        val actionCatalog = actionCatalogFor(document)
         val catalogOnly =
-            SceneValidation.validateCatalogs(document, assets, actions).problems.toMutableList()
+            SceneValidation.validateCatalogs(document, assets, actionCatalog ?: actions)
+                .problems
+                .toMutableList()
         intrinsic.problems.forEach(catalogOnly::remove)
         return CatalogStatus(
             document.catalogs.assets == references.assets,
-            document.catalogs.actions == references.actions,
+            actionCatalog != null,
             SceneValidationResult(catalogOnly),
         )
     }
@@ -44,7 +61,7 @@ class SceneCatalogBinding(val assets: AssetCatalog, val actions: ActionCatalog) 
      * True only when the action pin matches and every present application action is catalog-valid.
      */
     fun actionsVerified(document: SceneDocument): Boolean =
-        document.catalogs.actions == references.actions &&
+        actionCatalogFor(document) != null &&
             applicationActions(document).all { (path, action) ->
                 actionVerified(document, path, action)
             }
@@ -61,8 +78,7 @@ class SceneCatalogBinding(val assets: AssetCatalog, val actions: ActionCatalog) 
         path: String,
         action: ApplicationAction,
     ): Boolean =
-        document.catalogs.actions == references.actions &&
-            actions.actions.containsKey(action.key) &&
+        actionCatalogFor(document)?.actions?.containsKey(action.key) == true &&
             status(document).validation.problems.none { problem ->
                 problem.path == path || problem.path.startsWith("$path/")
             }
@@ -78,15 +94,18 @@ class SceneCatalogBinding(val assets: AssetCatalog, val actions: ActionCatalog) 
             }
         }
 
+    private fun actionCatalogFor(document: SceneDocument): ActionCatalog? =
+        actionResolver(document.catalogs.actions)
+
     companion object {
         /**
-         * Production binding: exact resource-pack catalog plus the intentionally empty action
-         * catalog.
+         * Production binding: exact resource-pack catalog plus the lobby action catalog resolver.
          */
         fun production(): SceneCatalogBinding =
             SceneCatalogBinding(
                 GroundsAssetCatalog.catalog,
-                ActionCatalog(CatalogId("grounds:actions"), "1", emptyMap()),
+                LobbySceneCatalogs.CURRENT,
+                LobbySceneCatalogs::resolve,
             )
     }
 }
