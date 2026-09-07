@@ -12,3 +12,5 @@ permissions:
 jobs:
   reusable:
     uses: groundsgg/.github/.github/workflows/gradle-publish.yml@main
+    secrets:
+      PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
