@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/groundsgg/plugin-scene-editor/compare/v0.1.0...v0.2.0) (2026-09-07)
+
+
+### Features
+
+* validate editor scenes against exact lobby action catalogs ([#8](https://github.com/groundsgg/plugin-scene-editor/issues/8)) ([d2b9aa0](https://github.com/groundsgg/plugin-scene-editor/commit/d2b9aa026e5b449366dfe0d30780e9da6327bf80))
+
 ## 0.1.0 (2026-08-27)
 
 
