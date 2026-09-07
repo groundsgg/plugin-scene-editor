@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/groundsgg/plugin-scene-editor/compare/v0.2.0...v0.2.1) (2026-09-07)
+
+
+### Bug Fixes
+
+* publish formatter-compatible editor artifacts ([68b0b2b](https://github.com/groundsgg/plugin-scene-editor/commit/68b0b2be37c718bd5506c119ffbedd2dfa5f93c6))
+
 ## [0.2.0](https://github.com/groundsgg/plugin-scene-editor/compare/v0.1.0...v0.2.0) (2026-09-07)
 
 
