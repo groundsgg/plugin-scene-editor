@@ -27,7 +27,9 @@ private constructor(
     ) : this(
         assets,
         actions,
-        { reference -> actions.takeIf { it.id == reference.id && it.version == reference.version } },
+        { reference ->
+            actions.takeIf { it.id == reference.id && it.version == reference.version }
+        },
     )
 
     val references: SceneCatalogReferences =
