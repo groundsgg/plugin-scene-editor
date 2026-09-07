@@ -30,7 +30,9 @@ class TransformMathTest {
     fun `adjusts every component with signed steps and canonical rotation`() {
         assertEquals(
             0.99,
-            TransformMath.adjust(transform, TransformComponent.X, TransformStep.FINE, -1).position.x,
+            TransformMath.adjust(transform, TransformComponent.X, TransformStep.FINE, -1)
+                .position
+                .x,
         )
         assertEquals(
             2.1,
@@ -64,7 +66,8 @@ class TransformMathTest {
         )
         assertEquals(
             Vec3(1.25, 1.25, 1.25),
-            TransformMath.adjust(transform, TransformComponent.SCALE, TransformStep.COARSE, 1).scale,
+            TransformMath.adjust(transform, TransformComponent.SCALE, TransformStep.COARSE, 1)
+                .scale,
         )
     }
 
