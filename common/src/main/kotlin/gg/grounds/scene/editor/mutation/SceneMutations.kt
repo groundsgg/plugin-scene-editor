@@ -1,6 +1,7 @@
 package gg.grounds.scene.editor.mutation
 
 import gg.grounds.scene.editor.catalog.SceneCatalogBinding
+import gg.grounds.scene.format.ActionKey
 import gg.grounds.scene.format.ActivationPolicy
 import gg.grounds.scene.format.ApplicationAction
 import gg.grounds.scene.format.AssetKey
@@ -12,8 +13,10 @@ import gg.grounds.scene.format.Npc
 import gg.grounds.scene.format.Prop
 import gg.grounds.scene.format.SceneDocument
 import gg.grounds.scene.format.SceneElement
+import gg.grounds.scene.format.SceneTrigger
 import gg.grounds.scene.format.SceneValidation
 import gg.grounds.scene.format.Transform
+import gg.grounds.scene.format.TriggerBinding
 import gg.grounds.scene.format.Vec3
 import java.util.UUID
 import net.kyori.adventure.text.Component
@@ -102,6 +105,13 @@ object SceneMutations {
 
     fun setLabel(actor: UUID, target: LocalId, label: Component?): SceneMutation =
         LabelEdit(actor, target, label)
+
+    fun setApplicationAction(
+        actor: UUID,
+        target: LocalId,
+        trigger: SceneTrigger,
+        action: ActionKey,
+    ): SceneMutation = ApplicationActionEdit(actor, target, trigger, action)
 
     fun remove(actor: UUID, target: LocalId): SceneMutation = Remove(actor, target)
 
@@ -310,6 +320,59 @@ object SceneMutations {
                         element.bindings,
                     )
             }
+    }
+
+    private data class ApplicationActionEdit(
+        override val actor: UUID,
+        override val target: LocalId,
+        private val trigger: SceneTrigger,
+        private val action: ActionKey,
+    ) : SceneMutation {
+        override val name = "npc.action.set"
+
+        override fun apply(
+            document: SceneDocument,
+            catalogs: SceneCatalogBinding,
+        ): SceneMutationResult {
+            val definition =
+                catalogs.actionDefinition(document, action)
+                    ?: return rejected(document, SceneMutationRejection.UNKNOWN_APPLICATION_ACTION)
+            if (definition.parameters.isNotEmpty())
+                return rejected(document, SceneMutationRejection.ACTION_REQUIRES_PARAMETERS)
+            return changeElement(document, target) { element ->
+                val npc = element as? Npc ?: return@changeElement null
+                val preserved =
+                    npc.bindings.filterNot { binding ->
+                        binding.trigger == trigger &&
+                            binding.conditions.isEmpty() &&
+                            binding.cooldownMillis == 0L &&
+                            binding.debounceMillis == 0L &&
+                            binding.actions.all { it is ApplicationAction }
+                    }
+                Npc(
+                    npc.id,
+                    npc.group,
+                    npc.transform,
+                    npc.visible,
+                    npc.activation,
+                    npc.body,
+                    npc.label,
+                    npc.labelOffset,
+                    npc.look,
+                    npc.initialAnimation,
+                    npc.interactionBounds,
+                    npc.proximity,
+                    preserved +
+                        TriggerBinding(
+                            trigger,
+                            emptyList(),
+                            0,
+                            0,
+                            listOf(ApplicationAction(action, emptyMap())),
+                        ),
+                )
+            }
+        }
     }
 
     private data class Remove(override val actor: UUID, override val target: LocalId) :

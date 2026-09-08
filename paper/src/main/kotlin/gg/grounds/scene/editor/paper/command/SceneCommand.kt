@@ -255,7 +255,7 @@ class SceneCommand(
         val actions = applicationActions(session.document).ifEmpty { "none" }
         feedback.info(
             player,
-            "Scene ${session.document.id.value}: ${session.document.elements.size} elements; preserved application actions (read-only): $actions; dirty=${sessions.hasUnsavedChanges(worldId)}.",
+            "Scene ${session.document.id.value}: ${session.document.elements.size} elements; application actions: $actions (parameterless catalog actions can be set on NPC triggers); dirty=${sessions.hasUnsavedChanges(worldId)}.",
         )
     }
 
@@ -397,6 +397,17 @@ class SceneCommand(
                         player.uniqueId,
                         id,
                         Component.text(args.drop(4).joinToString(" ")),
+                    )
+                else null
+            "action" ->
+                if (kind == "npc" && args.getOrNull(3)?.equals("set", true) == true)
+                    SceneMutations.setApplicationAction(
+                        player.uniqueId,
+                        id,
+                        gg.grounds.scene.format.SceneTrigger.valueOf(
+                            args.getOrNull(4)?.uppercase(Locale.ROOT) ?: return null
+                        ),
+                        gg.grounds.scene.format.ActionKey(args.getOrNull(5) ?: return null),
                     )
                 else null
             "position" -> transformPosition(player, id, args)
@@ -697,6 +708,13 @@ class SceneCommand(
             .filter { it.kind.name == if (npc) "NPC_BODY" else "PROP" }
             .map { it.key.value }
             .sorted()
+
+    internal fun catalogActions(sender: CommandSender?): List<String> {
+        val player = sender as? Player ?: return emptyList()
+        val worldId = resolver.resolve(player)?.worldId ?: return emptyList()
+        val document = sessions.session(worldId)?.document ?: return emptyList()
+        return catalogs.parameterlessActionsFor(document).map { it.key.value }.sorted()
+    }
 
     internal fun elementIds(sender: CommandSender?, npc: Boolean): List<String> {
         val player = sender as? Player ?: return emptyList()

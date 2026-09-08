@@ -2,6 +2,7 @@ package gg.grounds.scene.editor.mutation
 
 import gg.grounds.scene.editor.catalog.SceneCatalogBinding
 import gg.grounds.scene.format.ActionCatalog
+import gg.grounds.scene.format.ActionDefinition
 import gg.grounds.scene.format.ActionKey
 import gg.grounds.scene.format.ApplicationAction
 import gg.grounds.scene.format.AssetCatalog
@@ -12,13 +13,16 @@ import gg.grounds.scene.format.CatalogId
 import gg.grounds.scene.format.CatalogReference
 import gg.grounds.scene.format.CatalogVersionRange
 import gg.grounds.scene.format.EulerRotation
+import gg.grounds.scene.format.HandCondition
 import gg.grounds.scene.format.LocalBounds
 import gg.grounds.scene.format.LocalId
 import gg.grounds.scene.format.LookBehavior
 import gg.grounds.scene.format.Npc
 import gg.grounds.scene.format.Prop
 import gg.grounds.scene.format.SceneDocument
+import gg.grounds.scene.format.SceneHand
 import gg.grounds.scene.format.SceneTrigger
+import gg.grounds.scene.format.SendMessageAction
 import gg.grounds.scene.format.Transform
 import gg.grounds.scene.format.TriggerBinding
 import gg.grounds.scene.format.Vec3
@@ -80,6 +84,81 @@ class SceneMutationsTest {
         assertEquals(null, npc.proximity)
         assertTrue(npc.bindings.isEmpty())
         assertEquals(LocalBounds(Vec3(0.0, 0.9, 0.0), Vec3(0.6, 1.8, 0.6)), npc.interactionBounds)
+    }
+
+    @Test
+    fun `sets a catalogued parameterless npc action without disturbing conditional bindings`() {
+        val action = ActionKey("grounds:lobby/open_navigator")
+        val catalogs =
+            SceneCatalogBinding(
+                testAssets,
+                ActionCatalog(
+                    CatalogId("grounds:actions"),
+                    "1",
+                    mapOf(action to ActionDefinition(action, "Navigator", "Open it", emptyMap())),
+                ),
+            )
+        val preserved =
+            TriggerBinding(
+                SceneTrigger.RIGHT_CLICK,
+                listOf(HandCondition(SceneHand.MAIN)),
+                250,
+                50,
+                listOf(SendMessageAction(Component.text("Existing action"))),
+            )
+        val replaceable =
+            TriggerBinding(
+                SceneTrigger.RIGHT_CLICK,
+                emptyList(),
+                0,
+                0,
+                listOf(ApplicationAction(action, emptyMap())),
+            )
+        val original =
+            catalogs.newDocument(
+                "grounds:test",
+                elements =
+                    listOf(
+                        Npc(
+                            LocalId("guide"),
+                            null,
+                            Transform(
+                                placement.position,
+                                EulerRotation(0.0, 0.0, 0.0),
+                                Vec3(1.0, 1.0, 1.0),
+                            ),
+                            body = AssetKey("grounds:editor/guide"),
+                            label = null,
+                            labelOffset = Vec3(0.0, 2.25, 0.0),
+                            look = LookBehavior.Fixed,
+                            initialAnimation = null,
+                            interactionBounds =
+                                LocalBounds(Vec3(0.0, 0.9, 0.0), Vec3(0.6, 1.8, 0.6)),
+                            proximity = null,
+                            bindings = listOf(preserved, replaceable),
+                        )
+                    ),
+            )
+
+        val edited =
+            SceneMutations.setApplicationAction(
+                    actor,
+                    LocalId("guide"),
+                    SceneTrigger.RIGHT_CLICK,
+                    action,
+                )
+                .apply(original, catalogs)
+                .documentOrThrow()
+        val npc = edited.elements.single() as Npc
+
+        assertEquals(preserved, npc.bindings.first())
+        assertEquals(2, npc.bindings.size)
+        val actionBinding = npc.bindings.last()
+        assertEquals(SceneTrigger.RIGHT_CLICK, actionBinding.trigger)
+        assertTrue(actionBinding.conditions.isEmpty())
+        assertEquals(0, actionBinding.cooldownMillis)
+        assertEquals(0, actionBinding.debounceMillis)
+        assertEquals(ApplicationAction(action, emptyMap()), actionBinding.actions.single())
     }
 
     @Test

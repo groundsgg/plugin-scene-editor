@@ -77,5 +77,11 @@ class SceneCommandDispatcherTest {
             SceneCommandDispatcher.Route.Element("npc", "label"),
             SceneCommandDispatcher.route(listOf("npc", "id", "label", "set", "Guide")),
         )
+        assertEquals(
+            SceneCommandDispatcher.Route.Element("npc", "action"),
+            SceneCommandDispatcher.route(
+                listOf("npc", "id", "action", "set", "right_click", "grounds:lobby/open_navigator")
+            ),
+        )
     }
 }

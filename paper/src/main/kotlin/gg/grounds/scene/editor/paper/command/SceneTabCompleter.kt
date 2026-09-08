@@ -8,10 +8,13 @@ import org.bukkit.command.TabCompleter
 class SceneTabCompleter(
     private val assets: (Boolean) -> List<String>,
     private val elementIds: (CommandSender?, Boolean) -> List<String>,
+    private val actions: (CommandSender?) -> List<String> = { emptyList() },
 ) : TabCompleter {
     constructor(assets: (Boolean) -> List<String>) : this(assets, { _, _ -> emptyList() })
 
-    constructor(scene: SceneCommand) : this(scene::catalogAssets, scene::elementIds)
+    constructor(
+        scene: SceneCommand
+    ) : this(scene::catalogAssets, scene::elementIds, scene::catalogActions)
 
     override fun onTabComplete(
         sender: CommandSender,
@@ -66,7 +69,7 @@ class SceneTabCompleter(
                                     "clone",
                                     "remove",
                                 ) +
-                                    if (args[0].equals("npc", true)) listOf("label")
+                                    if (args[0].equals("npc", true)) listOf("label", "action")
                                     else emptyList()
                             else -> emptyList()
                         }
@@ -80,8 +83,27 @@ class SceneTabCompleter(
                         args[2].equals("rotation", true) -> listOf("set", "add")
                         args[2].equals("scale", true) -> listOf("set")
                         args[2].equals("label", true) -> listOf("set")
+                        args[2].equals("action", true) -> listOf("set")
                         else -> emptyList()
                     }
+                5 ->
+                    if (
+                        args[0].equals("npc", true) &&
+                            args[2].equals("action", true) &&
+                            args[3].equals("set", true)
+                    )
+                        gg.grounds.scene.format.SceneTrigger.entries.map {
+                            it.name.lowercase(Locale.ROOT)
+                        }
+                    else emptyList()
+                6 ->
+                    if (
+                        args[0].equals("npc", true) &&
+                            args[2].equals("action", true) &&
+                            args[3].equals("set", true)
+                    )
+                        actions(sender)
+                    else emptyList()
                 else -> emptyList()
             }
         val needle = args.lastOrNull().orEmpty().lowercase(Locale.ROOT)

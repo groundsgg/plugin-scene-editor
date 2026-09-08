@@ -7,6 +7,7 @@ import gg.grounds.scene.editor.repository.WorldSceneRepository
 import gg.grounds.scene.editor.session.EditorSessionService
 import gg.grounds.scene.editor.session.ReloadPreparationResult
 import gg.grounds.scene.format.ActionCatalog
+import gg.grounds.scene.format.ActionDefinition
 import gg.grounds.scene.format.ActionKey
 import gg.grounds.scene.format.ApplicationAction
 import gg.grounds.scene.format.AssetCatalog
@@ -214,6 +215,30 @@ class SceneCommandAdapterTest {
     }
 
     @Test
+    fun `npc action command enters the normal undoable session pipeline`() {
+        val fixture = fixture()
+        fixture.command.execute(fixture.player, "create", "grounds:editing", "Editing")
+        fixture.command.execute(fixture.player, "npc", "guide", "create", "grounds:editor/guide")
+        fixture.command.execute(fixture.player, "npc", "guide", "select")
+        fixture.command.execute(
+            fixture.player,
+            "npc",
+            "guide",
+            "action",
+            "set",
+            "right_click",
+            "grounds:lobby/open_navigator",
+        )
+
+        assertEquals(
+            ApplicationAction(ActionKey("grounds:lobby/open_navigator"), emptyMap()),
+            (fixture.document().elements.single() as Npc).bindings.single().actions.single(),
+        )
+        fixture.command.execute(fixture.player, "undo")
+        assertTrue((fixture.document().elements.single() as Npc).bindings.isEmpty())
+    }
+
+    @Test
     fun `mixed case prop recovery and lease actions execute identically`() {
         val fixture = fixtureWithProp()
         fixture.command.execute(fixture.player, "PROP", "marker", "SELECT")
@@ -279,7 +304,7 @@ class SceneCommandAdapterTest {
         actionFixture.sessions.open(actionFixture.worldId, actionDocument(actionFixture.catalogs))
         actionFixture.command.execute(actionFixture.player, "info")
         assertTrue(actionFixture.feedback.infos.last().contains("grounds:award"))
-        assertTrue(actionFixture.feedback.infos.last().contains("read-only"))
+        assertTrue(actionFixture.feedback.infos.last().contains("parameterless catalog actions"))
     }
 
     @Test
@@ -419,7 +444,19 @@ class SceneCommandAdapterTest {
                         ),
                 ),
             ),
-            ActionCatalog(CatalogId("grounds:actions"), "1", emptyMap()),
+            ActionCatalog(
+                CatalogId("grounds:actions"),
+                "1",
+                mapOf(
+                    ActionKey("grounds:lobby/open_navigator") to
+                        ActionDefinition(
+                            ActionKey("grounds:lobby/open_navigator"),
+                            "Navigator",
+                            "Open navigator",
+                            emptyMap(),
+                        )
+                ),
+            ),
         )
 
     private fun actionDocument(catalogs: SceneCatalogBinding): SceneDocument {

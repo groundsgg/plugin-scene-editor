@@ -75,6 +75,16 @@ private constructor(
             matches.all { (path, candidate) -> actionVerified(document, path, candidate) }
     }
 
+    /** Returns an action definition only from the action catalog pinned by [document]. */
+    fun actionDefinition(document: SceneDocument, key: gg.grounds.scene.format.ActionKey) =
+        actionCatalogFor(document)?.actions?.get(key)
+
+    /** Actions that this editor slice can construct without collecting arguments. */
+    fun parameterlessActionsFor(
+        document: SceneDocument
+    ): Collection<gg.grounds.scene.format.ActionDefinition> =
+        actionCatalogFor(document)?.actions?.values?.filter { it.parameters.isEmpty() }.orEmpty()
+
     private fun actionVerified(
         document: SceneDocument,
         path: String,

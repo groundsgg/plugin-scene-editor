@@ -1,11 +1,17 @@
 package gg.grounds.scene.editor.catalog
 
 import gg.grounds.lobby.scene.LobbySceneCatalogs
+import gg.grounds.resourcepacks.catalog.GroundsAssetCatalog
+import gg.grounds.scene.format.ActionCatalog
+import gg.grounds.scene.format.ActionDefinition
 import gg.grounds.scene.format.ActionKey
+import gg.grounds.scene.format.ActionParameter
+import gg.grounds.scene.format.ActionParameterType
 import gg.grounds.scene.format.ApplicationAction
 import gg.grounds.scene.format.CatalogId
 import gg.grounds.scene.format.CatalogReference
 import gg.grounds.scene.format.LocalId
+import gg.grounds.scene.format.NoConstraints
 import gg.grounds.scene.format.Npc
 import gg.grounds.scene.format.SceneCatalogReferences
 import gg.grounds.scene.format.SceneDocument
@@ -65,6 +71,44 @@ class SceneCatalogBindingTest {
         assertFalse(binding.actionsVerified(document(document, elements = listOf(npc(unknown)))))
         assertFalse(
             binding.actionsVerified(document(document, elements = listOf(npc(unexpectedArgument))))
+        )
+    }
+
+    @Test
+    fun `parameterless actions exclude catalog entries that require authored arguments`() {
+        val navigator = ActionKey("grounds:lobby/open_navigator")
+        val parameterized = ActionKey("grounds:lobby/teleport")
+        val binding =
+            SceneCatalogBinding(
+                GroundsAssetCatalog.catalog,
+                ActionCatalog(
+                    CatalogId("grounds:actions"),
+                    "1",
+                    mapOf(
+                        navigator to ActionDefinition(navigator, "Navigator", "Open", emptyMap()),
+                        parameterized to
+                            ActionDefinition(
+                                parameterized,
+                                "Teleport",
+                                "Teleport",
+                                mapOf(
+                                    LocalId("target") to
+                                        ActionParameter(
+                                            LocalId("target"),
+                                            ActionParameterType.STRING,
+                                            true,
+                                            null,
+                                            NoConstraints,
+                                        )
+                                ),
+                            ),
+                    ),
+                ),
+            )
+
+        assertEquals(
+            listOf(navigator),
+            binding.parameterlessActionsFor(binding.newDocument("grounds:test")).map { it.key },
         )
     }
 
