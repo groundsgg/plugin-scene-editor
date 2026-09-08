@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/groundsgg/plugin-scene-editor/compare/v0.2.1...v0.3.0) (2026-09-08)
+
+
+### Features
+
+* **editor:** author NPC actions in game ([#14](https://github.com/groundsgg/plugin-scene-editor/issues/14)) ([ec9e41e](https://github.com/groundsgg/plugin-scene-editor/commit/ec9e41ec736626a464c80e3feefecaff0bf9eb92))
+
 ## [0.2.1](https://github.com/groundsgg/plugin-scene-editor/compare/v0.2.0...v0.2.1) (2026-09-07)
 
 
