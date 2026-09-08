@@ -38,6 +38,28 @@ class SceneTabCompleterTest {
     }
 
     @Test
+    fun `completes npc action triggers and catalogued action keys`() {
+        val completer =
+            SceneTabCompleter(
+                { emptyList<String>() },
+                { _, _ -> emptyList() },
+                { _ -> listOf("grounds:lobby/open_navigator") },
+            )
+
+        assertEquals(
+            listOf("right_click"),
+            completer.complete(null, arrayOf("npc", "guide", "action", "set", "right_")),
+        )
+        assertEquals(
+            listOf("grounds:lobby/open_navigator"),
+            completer.complete(
+                null,
+                arrayOf("npc", "guide", "action", "set", "right_click", "grounds:"),
+            ),
+        )
+    }
+
+    @Test
     fun `filters mixed case paths using normalized leaf permissions`() {
         val sender = mock(CommandSender::class.java)
         `when`(sender.hasPermission("grounds.scene.prop.position.here")).thenReturn(true)

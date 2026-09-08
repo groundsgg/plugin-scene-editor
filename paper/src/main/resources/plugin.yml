@@ -97,6 +97,8 @@ permissions:
     description: Scale NPCs
   grounds.scene.npc.label.set:
     description: Change NPC labels
+  grounds.scene.npc.action.set:
+    description: Set parameterless catalog actions on NPC triggers
   grounds.scene.npc.clone:
     description: Clone NPCs
   grounds.scene.npc.remove:

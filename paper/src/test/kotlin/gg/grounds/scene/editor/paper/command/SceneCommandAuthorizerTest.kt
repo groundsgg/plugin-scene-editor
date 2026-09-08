@@ -35,6 +35,27 @@ class SceneCommandAuthorizerTest {
     }
 
     @Test
+    fun `npc action mutation requires its dedicated permission`() {
+        val authorizer = SceneCommandAuthorizer { it == "grounds.scene.npc.action.set" }
+
+        assertTrue(
+            authorizer.isAllowed(
+                listOf(
+                    "npc",
+                    "guide",
+                    "action",
+                    "set",
+                    "right_click",
+                    "grounds:lobby/open_navigator",
+                )
+            )
+        )
+        assertFalse(
+            authorizer.isAllowed(listOf("prop", "marker", "action", "set", "right_click", "x:y"))
+        )
+    }
+
+    @Test
     fun `override administrators may reach explicit lease release`() {
         val authorizer = SceneCommandAuthorizer { it == "grounds.scene.lease.override" }
 
