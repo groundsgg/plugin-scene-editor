@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/groundsgg/plugin-scene-editor/compare/v0.3.0...v0.3.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* align scene editor with stable asset catalog ([#21](https://github.com/groundsgg/plugin-scene-editor/issues/21)) ([d2e28ea](https://github.com/groundsgg/plugin-scene-editor/commit/d2e28ea3d16ec7f11425e078f0cb4119ba923329))
+
 ## [0.3.0](https://github.com/groundsgg/plugin-scene-editor/compare/v0.2.1...v0.3.0) (2026-09-08)
 
 
