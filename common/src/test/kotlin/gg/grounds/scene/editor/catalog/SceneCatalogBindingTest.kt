@@ -17,12 +17,34 @@ import gg.grounds.scene.format.SceneCatalogReferences
 import gg.grounds.scene.format.SceneDocument
 import gg.grounds.scene.format.SceneTrigger
 import gg.grounds.scene.format.TriggerBinding
+import org.junit.jupiter.api.Assertions.assertAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class SceneCatalogBindingTest {
+    @Test
+    fun `production binding creates and verifies stable asset catalog documents`() {
+        val binding = SceneCatalogBinding.production()
+        val fresh = binding.newDocument("grounds:fresh")
+        val stableReference = CatalogReference(CatalogId("grounds:assets"), "1.0.0")
+        val stableDocument =
+            SceneDocument(
+                1,
+                gg.grounds.scene.format.SceneId("grounds:stable"),
+                gg.grounds.scene.format.SceneMetadata("grounds:stable", null, emptySet()),
+                SceneCatalogReferences(stableReference, fresh.catalogs.actions),
+                emptyList(),
+                emptyList(),
+            )
+
+        assertAll(
+            { assertEquals(stableReference, fresh.catalogs.assets) },
+            { assertTrue(binding.status(stableDocument).isVerified) },
+        )
+    }
+
     @Test
     fun `production binding resolves legacy and current pins without repinning`() {
         val binding = SceneCatalogBinding.production()
