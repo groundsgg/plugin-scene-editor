@@ -68,7 +68,7 @@ class CanonicalSceneRoundTripTest {
             service
                 .mutate(
                     worldId,
-                    SceneMutations.setNpcBounceStrength(actor, LocalId("guide"), 12.5),
+                    SceneMutations.setNpcBounceDistance(actor, LocalId("guide"), 1.5),
                 )
                 .accepted
         )
@@ -79,7 +79,7 @@ class CanonicalSceneRoundTripTest {
         assertTrue(decoded is SceneDecodeResult.Success)
         val decodedScene = (decoded as SceneDecodeResult.Success).scene
         assertEquals(
-            NpcCollision(NpcCollisionMode.NONE, 12.5),
+            NpcCollision(NpcCollisionMode.NONE, 6.0, 1.5),
             decodedScene.elements.filterIsInstance<Npc>().single().collision,
         )
         assertEquals(

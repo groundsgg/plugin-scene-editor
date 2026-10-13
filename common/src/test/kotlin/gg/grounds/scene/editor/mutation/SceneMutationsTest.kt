@@ -136,8 +136,42 @@ class SceneMutationsTest {
     }
 
     @Test
+    fun `npc bounce distance resets legacy strength and explicit strength clears distance`() {
+        val original = npcDocument()
+        val legacy =
+            SceneMutations.setNpcBounceStrength(actor, LocalId("guide"), 12.5)
+                .apply(original, binding)
+                .documentOrThrow()
+        val withDistance =
+            SceneMutations.setNpcBounceDistance(actor, LocalId("guide"), 1.5)
+                .apply(legacy, binding)
+                .documentOrThrow()
+        val withMode =
+            SceneMutations.setNpcCollisionMode(actor, LocalId("guide"), NpcCollisionMode.BOUNCE)
+                .apply(withDistance, binding)
+                .documentOrThrow()
+        val withExplicitStrength =
+            SceneMutations.setNpcBounceStrength(actor, LocalId("guide"), 6.0)
+                .apply(withMode, binding)
+                .documentOrThrow()
+
+        assertEquals(
+            NpcCollision(NpcCollisionMode.NONE, 6.0, 1.5),
+            (withDistance.elements.single() as Npc).collision,
+        )
+        assertEquals(
+            NpcCollision(NpcCollisionMode.BOUNCE, 6.0, 1.5),
+            (withMode.elements.single() as Npc).collision,
+        )
+        assertEquals(
+            NpcCollision(NpcCollisionMode.BOUNCE, 6.0, null),
+            (withExplicitStrength.elements.single() as Npc).collision,
+        )
+    }
+
+    @Test
     fun `npc body label transform action and clone edits preserve collision`() {
-        val collision = NpcCollision(NpcCollisionMode.BOUNCE, 12.5)
+        val collision = NpcCollision(NpcCollisionMode.BOUNCE, 6.0, 1.5)
         val action = ActionKey("grounds:lobby/open_navigator")
         val catalogs =
             SceneCatalogBinding(
@@ -153,7 +187,7 @@ class SceneMutationsTest {
                 .apply(npcDocument(catalogs), catalogs)
                 .documentOrThrow()
         val configured =
-            SceneMutations.setNpcBounceStrength(actor, LocalId("guide"), collision.bounceStrength)
+            SceneMutations.setNpcBounceDistance(actor, LocalId("guide"), collision.bounceDistance!!)
                 .apply(withMode, catalogs)
                 .documentOrThrow()
         val body =
@@ -199,6 +233,20 @@ class SceneMutationsTest {
         listOf(-0.1, 20.1, Double.NaN, Double.POSITIVE_INFINITY).forEach { strength ->
             val result =
                 SceneMutations.setNpcBounceStrength(actor, LocalId("guide"), strength)
+                    .apply(original, binding)
+
+            assertTrue(result is SceneMutationResult.Rejected)
+            assertSame(original, result.document)
+        }
+    }
+
+    @Test
+    fun `invalid npc bounce distances reject without replacing the document`() {
+        val original = npcDocument()
+
+        listOf(-0.1, 20.1, Double.NaN, Double.POSITIVE_INFINITY).forEach { distance ->
+            val result =
+                SceneMutations.setNpcBounceDistance(actor, LocalId("guide"), distance)
                     .apply(original, binding)
 
             assertTrue(result is SceneMutationResult.Rejected)

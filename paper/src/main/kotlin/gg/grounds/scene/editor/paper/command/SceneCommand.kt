@@ -83,7 +83,7 @@ class SceneCommand(
         if (args.isEmpty()) {
             feedback.info(
                 sender,
-                "Use /scene create, info, validate, save, prop, npc, lease, recovery, or catalogs status. NPC collision: /scene npc <id> collision set none|solid|bounce or collision strength <0..20>.",
+                "Use /scene create, info, validate, save, prop, npc, lease, recovery, or catalogs status. NPC collision: /scene npc <id> collision set none|solid|bounce, collision strength <0..20>, or collision distance <0..20>.",
             )
             return true
         }
@@ -428,6 +428,12 @@ class SceneCommand(
                                 id,
                                 finite(args.getOrNull(4)),
                             )
+                        "distance" ->
+                            SceneMutations.setNpcBounceDistance(
+                                player.uniqueId,
+                                id,
+                                bounceDistance(args.getOrNull(4)),
+                            )
                         else -> null
                     }
                 else null
@@ -712,6 +718,10 @@ class SceneCommand(
 
     private fun finite(value: String?): Double =
         SceneCommandParser.finite(value) ?: throw IllegalArgumentException("finite number required")
+
+    private fun bounceDistance(value: String?): Double =
+        SceneCommandParser.bounceDistance(value)
+            ?: throw IllegalArgumentException("bounce distance required")
 
     private fun usage(sender: CommandSender, message: String) {
         feedback.error(sender, message)

@@ -69,7 +69,9 @@ class SceneCommandAuthorizer(private val hasPermission: (String) -> Boolean) {
                         "scale",
                         "label",
                         "action" -> path.getOrNull(3)?.let(::listOf) ?: listOf("set")
-                        "collision" -> path.getOrNull(3)?.let(::listOf) ?: listOf("set", "strength")
+                        "collision" ->
+                            path.getOrNull(3)?.let(::listOf)
+                                ?: listOf("set", "strength", "distance")
                         else -> listOf<String?>(null)
                     }
                 modes.map { mode ->

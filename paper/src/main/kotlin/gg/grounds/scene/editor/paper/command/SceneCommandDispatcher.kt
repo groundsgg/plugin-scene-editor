@@ -78,7 +78,8 @@ object SceneCommandDispatcher {
                         args.size == 6
                 "collision" ->
                     kind == "npc" &&
-                        args.getOrNull(3)?.lowercase(Locale.ROOT) in setOf("set", "strength") &&
+                        args.getOrNull(3)?.lowercase(Locale.ROOT) in
+                            setOf("set", "strength", "distance") &&
                         args.size == 5
                 else -> false
             }

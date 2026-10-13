@@ -191,7 +191,7 @@ class EditorSessionServiceTest {
         val unselected =
             service.mutate(
                 world,
-                SceneMutations.setNpcBounceStrength(alice, LocalId("guide"), 12.5),
+                SceneMutations.setNpcBounceDistance(alice, LocalId("guide"), 1.5),
             )
         assertEquals(
             SceneMutationRejection.SELECTION_REQUIRED,
@@ -206,7 +206,7 @@ class EditorSessionServiceTest {
             service
                 .mutate(
                     world,
-                    SceneMutations.setNpcBounceStrength(alice, LocalId("guide"), 12.5),
+                    SceneMutations.setNpcBounceDistance(alice, LocalId("guide"), 1.5),
                 )
                 .accepted
         )
@@ -223,7 +223,7 @@ class EditorSessionServiceTest {
                 .accepted
         )
         assertEquals(
-            NpcCollision(NpcCollisionMode.SOLID, 12.5),
+            NpcCollision(NpcCollisionMode.SOLID, 6.0, 1.5),
             (service.session(world)!!.document.elements.single() as Npc).collision,
         )
 
@@ -231,7 +231,7 @@ class EditorSessionServiceTest {
         assertEquals(beforeCollision, service.session(world)!!.document)
         assertTrue(service.redo(world, 2))
         assertEquals(
-            NpcCollision(NpcCollisionMode.SOLID, 12.5),
+            NpcCollision(NpcCollisionMode.SOLID, 6.0, 1.5),
             (service.session(world)!!.document.elements.single() as Npc).collision,
         )
     }

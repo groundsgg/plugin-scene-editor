@@ -78,7 +78,7 @@ class SceneCommandAdapterTest {
     }
 
     @Test
-    fun `root help exposes both npc collision command forms`() {
+    fun `root help exposes all npc collision command forms`() {
         val fixture = fixture()
 
         fixture.command.execute(fixture.player)
@@ -86,7 +86,8 @@ class SceneCommandAdapterTest {
         assertTrue(
             fixture.feedback.infos.any {
                 it.contains("collision set none|solid|bounce") &&
-                    it.contains("collision strength <0..20>")
+                    it.contains("collision strength <0..20>") &&
+                    it.contains("collision distance <0..20>")
             }
         )
     }
@@ -223,13 +224,14 @@ class SceneCommandAdapterTest {
         fixture.command.execute(fixture.player, "npc", "guide", "scale", "set", "3")
         fixture.command.execute(fixture.player, "npc", "guide", "label", "set", "Guide NPC")
         fixture.command.execute(fixture.player, "npc", "guide", "collision", "strength", "12.5")
+        fixture.command.execute(fixture.player, "npc", "guide", "collision", "distance", "1.5")
         fixture.command.execute(fixture.player, "npc", "guide", "collision", "set", "bounce")
         fixture.command.execute(fixture.player, "npc", "guide", "clone", "guide-copy")
         val guide =
             fixture.document().elements.filterIsInstance<Npc>().first { it.id.value == "guide" }
         assertEquals(Vec3(3.0, 3.0, 3.0), guide.transform.scale)
         assertEquals("Guide NPC", PlainTextComponentSerializer.plainText().serialize(guide.label!!))
-        assertEquals(NpcCollision(NpcCollisionMode.BOUNCE, 12.5), guide.collision)
+        assertEquals(NpcCollision(NpcCollisionMode.BOUNCE, 6.0, 1.5), guide.collision)
         assertEquals(
             guide.collision,
             fixture
@@ -260,6 +262,29 @@ class SceneCommandAdapterTest {
                 "collision",
                 "strength",
                 strength,
+            )
+            assertSame(original, fixture.document())
+            assertEquals(undoSize, fixture.sessions.session(fixture.worldId)!!.history.undoSize)
+        }
+    }
+
+    @Test
+    fun `invalid raw collision distance leaves document and history unchanged`() {
+        val fixture = fixture()
+        fixture.command.execute(fixture.player, "create", "grounds:editing", "Editing")
+        fixture.command.execute(fixture.player, "npc", "guide", "create", "grounds:editor/guide")
+        fixture.command.execute(fixture.player, "npc", "guide", "select")
+        val original = fixture.document()
+        val undoSize = fixture.sessions.session(fixture.worldId)!!.history.undoSize
+
+        listOf("-1e-4000", "20.0000000000000000000000000000000001").forEach { distance ->
+            fixture.command.execute(
+                fixture.player,
+                "npc",
+                "guide",
+                "collision",
+                "distance",
+                distance,
             )
             assertSame(original, fixture.document())
             assertEquals(undoSize, fixture.sessions.session(fixture.worldId)!!.history.undoSize)
