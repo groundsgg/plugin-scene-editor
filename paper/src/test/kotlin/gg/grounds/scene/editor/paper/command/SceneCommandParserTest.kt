@@ -14,6 +14,17 @@ class SceneCommandParserTest {
     }
 
     @Test
+    fun `bounce distance validates the raw decimal before double conversion`() {
+        assertEquals(0.0, SceneCommandParser.bounceDistance("0"))
+        assertEquals(1.5, SceneCommandParser.bounceDistance("1.5"))
+        assertEquals(20.0, SceneCommandParser.bounceDistance("20"))
+        assertNull(SceneCommandParser.bounceDistance("-1e-4000"))
+        assertNull(SceneCommandParser.bounceDistance("20.0000000000000000000000000000000001"))
+        assertNull(SceneCommandParser.bounceDistance("NaN"))
+        assertNull(SceneCommandParser.bounceDistance(null))
+    }
+
+    @Test
     fun `paginates deterministically with an explicit page`() {
         val page = SceneCommandParser.page((1..45).map { "id-$it" }, 2, 20)
 

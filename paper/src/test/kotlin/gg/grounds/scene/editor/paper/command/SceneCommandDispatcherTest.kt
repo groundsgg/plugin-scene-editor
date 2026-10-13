@@ -88,6 +88,7 @@ class SceneCommandDispatcherTest {
                 listOf("npc", "id", "collision", "set", "solid"),
                 listOf("npc", "id", "collision", "set", "bounce"),
                 listOf("npc", "id", "collision", "strength", "12.5"),
+                listOf("npc", "id", "collision", "distance", "1.5"),
             )
             .forEach { args ->
                 assertEquals(

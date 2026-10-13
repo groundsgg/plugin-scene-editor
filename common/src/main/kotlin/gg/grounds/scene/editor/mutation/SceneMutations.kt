@@ -124,6 +124,9 @@ object SceneMutations {
     fun setNpcBounceStrength(actor: UUID, target: LocalId, strength: Double): SceneMutation =
         NpcBounceStrengthEdit(actor, target, strength)
 
+    fun setNpcBounceDistance(actor: UUID, target: LocalId, distance: Double): SceneMutation =
+        NpcBounceDistanceEdit(actor, target, distance)
+
     fun remove(actor: UUID, target: LocalId): SceneMutation = Remove(actor, target)
 
     private data class Create(
@@ -367,7 +370,27 @@ object SceneMutations {
                 return rejected(document, SceneMutationRejection.INTRINSIC_INVALID)
             return changeElement(document, target) { element ->
                 val npc = element as? Npc ?: return@changeElement null
-                withCollision(npc, npc.collision.copy(bounceStrength = strength))
+                withCollision(npc, NpcCollision(npc.collision.mode, strength, null))
+            }
+        }
+    }
+
+    private data class NpcBounceDistanceEdit(
+        override val actor: UUID,
+        override val target: LocalId,
+        private val distance: Double,
+    ) : SceneMutation {
+        override val name = "npc.collision.distance"
+
+        override fun apply(
+            document: SceneDocument,
+            catalogs: SceneCatalogBinding,
+        ): SceneMutationResult {
+            if (!distance.isFinite() || distance !in 0.0..20.0)
+                return rejected(document, SceneMutationRejection.INTRINSIC_INVALID)
+            return changeElement(document, target) { element ->
+                val npc = element as? Npc ?: return@changeElement null
+                withCollision(npc, NpcCollision(npc.collision.mode, 6.0, distance))
             }
         }
     }

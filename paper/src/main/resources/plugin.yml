@@ -103,6 +103,8 @@ permissions:
     description: Set NPC collision mode
   grounds.scene.npc.collision.strength:
     description: Set NPC bounce strength
+  grounds.scene.npc.collision.distance:
+    description: Set approximate NPC bounce distance
   grounds.scene.npc.clone:
     description: Clone NPCs
   grounds.scene.npc.remove:

@@ -66,12 +66,16 @@ class SceneTabCompleterTest {
             completer.complete(null, arrayOf("npc", "guide", "coll")),
         )
         assertEquals(
-            listOf("set", "strength"),
+            listOf("distance", "set", "strength"),
             completer.complete(null, arrayOf("npc", "guide", "collision", "")),
         )
         assertEquals(
             listOf("bounce", "none", "solid"),
             completer.complete(null, arrayOf("npc", "guide", "collision", "set", "")),
+        )
+        assertEquals(
+            listOf("0", "0.5", "1", "1.5", "2"),
+            completer.complete(null, arrayOf("npc", "guide", "collision", "distance", "")),
         )
     }
 
