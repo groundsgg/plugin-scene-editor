@@ -4,6 +4,7 @@ import de.eintosti.buildsystem.api.BuildSystem
 import gg.grounds.scene.editor.SceneEditStatus
 import gg.grounds.scene.editor.catalog.SceneCatalogBinding
 import gg.grounds.scene.editor.paper.command.SceneCommand
+import gg.grounds.scene.editor.paper.command.SceneCommandScheduler
 import gg.grounds.scene.editor.paper.command.SceneTabCompleter
 import gg.grounds.scene.editor.paper.preview.BukkitPreviewEntityFactory
 import gg.grounds.scene.editor.paper.preview.PaperPreviewAdapter
@@ -23,6 +24,14 @@ class PaperSceneEditorRuntime(
     previewFactory: (JavaPlugin) -> PaperPreviewAdapter = {
         PaperPreviewAdapter(BukkitPreviewEntityFactory(it))
     },
+    automaticLoaderFactory:
+        (
+            JavaPlugin,
+            EditorSessionService,
+            PaperSessionResolver,
+            SceneCommandScheduler,
+        ) -> PaperAutomaticSceneLoader =
+        ::PaperAutomaticSceneLoader,
     private val commandRegistrar: (SceneCommand, SceneTabCompleter) -> Unit =
         { command, completer ->
             plugin.getCommand("scene")?.let {
@@ -42,9 +51,16 @@ class PaperSceneEditorRuntime(
     private val previewController = PaperPreviewController(plugin, sessions, resolver, previews)
     private val editorTool = EditorTool(plugin)
     private val toolListener = EditorToolListener(editorTool, sessions, catalogs, resolver)
+    private val automaticLoader = automaticLoaderFactory(plugin, sessions, resolver, scheduler)
     private val playerLifecycle =
-        PaperPlayerLifecycleListener(sessions, previews, toolListener::clearPlayer)
-    private val worldLifecycle = PaperWorldLifecycleListener(plugin, sessions, previews)
+        PaperPlayerLifecycleListener(
+            sessions,
+            previews,
+            toolListener::clearPlayer,
+            automaticLoader::openFor,
+        )
+    private val worldLifecycle =
+        PaperWorldLifecycleListener(plugin, sessions, previews, automaticLoader::invalidate)
     private val command =
         SceneCommand(
             plugin,
@@ -66,11 +82,13 @@ class PaperSceneEditorRuntime(
             plugin.server.pluginManager.registerEvents(playerLifecycle, plugin)
             plugin.server.pluginManager.registerEvents(worldLifecycle, plugin)
             plugin.server.pluginManager.registerEvents(toolListener, plugin)
+            plugin.server.onlinePlayers.forEach(automaticLoader::openFor)
             previewController.start()
             // Keep command registration last: it has no generic undo seam, so no later step may
             // fail.
             commandRegistrar(command, SceneTabCompleter(command))
         } catch (error: Throwable) {
+            automaticLoader.close()
             previewController.close()
             HandlerList.unregisterAll(playerLifecycle)
             HandlerList.unregisterAll(worldLifecycle)
@@ -96,6 +114,7 @@ class PaperSceneEditorRuntime(
             HandlerList.unregisterAll(playerLifecycle)
             HandlerList.unregisterAll(worldLifecycle)
             HandlerList.unregisterAll(toolListener)
+            attempt(automaticLoader::close)
             attempt(worldLifecycle::closeAll)
             attempt(previews::close)
             attempt(scheduler::close)
