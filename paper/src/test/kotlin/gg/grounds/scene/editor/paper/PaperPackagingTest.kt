@@ -47,5 +47,7 @@ class PaperPackagingTest {
         assertFalse(pluginYml.contains("\${VERSION}"))
         assertTrue(pluginYml.contains("depend: [BuildSystem]"))
         assertTrue(pluginYml.contains("scene:"))
+        assertTrue(pluginYml.contains("grounds.scene.npc.collision.set:"))
+        assertTrue(pluginYml.contains("grounds.scene.npc.collision.strength:"))
     }
 }

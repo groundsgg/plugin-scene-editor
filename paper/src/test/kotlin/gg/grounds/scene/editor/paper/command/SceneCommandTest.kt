@@ -42,7 +42,14 @@ class SceneCommandTest {
                         .map { operation ->
                             if (operation == "list") listOf(kind, operation)
                             else listOf(kind, "id", operation)
-                        } + if (kind == "npc") listOf(listOf("npc", "id", "label")) else emptyList()
+                        } +
+                        if (kind == "npc")
+                            listOf(
+                                listOf("npc", "id", "label"),
+                                listOf("npc", "id", "collision", "set"),
+                                listOf("npc", "id", "collision", "strength"),
+                            )
+                        else emptyList()
                 }
         routes.forEach { assertTrue(allowed.isAllowed(it), "missing route: $it") }
     }

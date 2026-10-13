@@ -24,6 +24,8 @@ import gg.grounds.scene.format.CatalogVersionRange
 import gg.grounds.scene.format.LocalId
 import gg.grounds.scene.format.LookBehavior
 import gg.grounds.scene.format.Npc
+import gg.grounds.scene.format.NpcCollision
+import gg.grounds.scene.format.NpcCollisionMode
 import gg.grounds.scene.format.SceneCatalogReferences
 import gg.grounds.scene.format.SceneDecodeResult
 import gg.grounds.scene.format.SceneDocument
@@ -61,7 +63,18 @@ class EditorSessionServiceTest {
                             emptySet(),
                             null,
                             emptyMap(),
-                        )
+                        ),
+                    AssetKey("grounds:editor/guide") to
+                        AssetDefinition(
+                            AssetKey("grounds:editor/guide"),
+                            AssetKind.NPC_BODY,
+                            emptySet(),
+                            gg.grounds.scene.format.LocalBounds(
+                                Vec3(0.0, 0.0, 0.0),
+                                Vec3(1.0, 2.0, 1.0),
+                            ),
+                            emptyMap(),
+                        ),
                 ),
             ),
             gg.grounds.scene.format.ActionCatalog(CatalogId("grounds:actions"), "1", emptyMap()),
@@ -166,6 +179,61 @@ class EditorSessionServiceTest {
             SceneMutations.setPosition(alice, LocalId("marker"), Vec3(9.0, 9.0, 9.0)),
         )
         assertFalse(service.redo(world))
+    }
+
+    @Test
+    fun `npc collision edits use selection lease and complete undo redo snapshots`() {
+        val service = EditorSessionService(binding)
+        service.open(world, binding.newDocument("grounds:test"))
+        assertTrue(service.mutate(world, createGuide(alice)).accepted)
+        val beforeCollision = service.session(world)!!.document
+
+        val unselected =
+            service.mutate(
+                world,
+                SceneMutations.setNpcBounceStrength(alice, LocalId("guide"), 12.5),
+            )
+        assertEquals(
+            SceneMutationRejection.SELECTION_REQUIRED,
+            (unselected.result as gg.grounds.scene.editor.mutation.SceneMutationResult.Rejected)
+                .reason,
+        )
+        assertSame(beforeCollision, service.session(world)!!.document)
+        assertTrue(service.select(world, alice, LocalId("guide")) is SelectionResult.Selected)
+        assertTrue(service.select(world, bob, LocalId("guide")) is SelectionResult.Refused)
+
+        assertTrue(
+            service
+                .mutate(
+                    world,
+                    SceneMutations.setNpcBounceStrength(alice, LocalId("guide"), 12.5),
+                )
+                .accepted
+        )
+        assertTrue(
+            service
+                .mutate(
+                    world,
+                    SceneMutations.setNpcCollisionMode(
+                        alice,
+                        LocalId("guide"),
+                        NpcCollisionMode.SOLID,
+                    ),
+                )
+                .accepted
+        )
+        assertEquals(
+            NpcCollision(NpcCollisionMode.SOLID, 12.5),
+            (service.session(world)!!.document.elements.single() as Npc).collision,
+        )
+
+        assertTrue(service.undo(world, 2))
+        assertEquals(beforeCollision, service.session(world)!!.document)
+        assertTrue(service.redo(world, 2))
+        assertEquals(
+            NpcCollision(NpcCollisionMode.SOLID, 12.5),
+            (service.session(world)!!.document.elements.single() as Npc).collision,
+        )
     }
 
     @Test
@@ -923,6 +991,14 @@ class EditorSessionServiceTest {
             actor,
             LocalId("marker"),
             AssetKey("grounds:editor/marker"),
+            PlayerPlacement(Vec3(0.0, 0.0, 0.0), 0.0),
+        )
+
+    private fun createGuide(actor: UUID) =
+        SceneMutations.createNpc(
+            actor,
+            LocalId("guide"),
+            AssetKey("grounds:editor/guide"),
             PlayerPlacement(Vec3(0.0, 0.0, 0.0), 0.0),
         )
 

@@ -21,6 +21,8 @@ import gg.grounds.scene.format.LocalBounds
 import gg.grounds.scene.format.LocalId
 import gg.grounds.scene.format.LookBehavior
 import gg.grounds.scene.format.Npc
+import gg.grounds.scene.format.NpcCollision
+import gg.grounds.scene.format.NpcCollisionMode
 import gg.grounds.scene.format.Prop
 import gg.grounds.scene.format.SceneDocument
 import gg.grounds.scene.format.SceneTrigger
@@ -41,6 +43,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -72,6 +75,20 @@ class SceneCommandAdapterTest {
 
         assertTrue(fixture.feedback.infos.single().contains("Asset catalog"))
         assertTrue(fixture.feedback.errors.single().contains("requires a player"))
+    }
+
+    @Test
+    fun `root help exposes both npc collision command forms`() {
+        val fixture = fixture()
+
+        fixture.command.execute(fixture.player)
+
+        assertTrue(
+            fixture.feedback.infos.any {
+                it.contains("collision set none|solid|bounce") &&
+                    it.contains("collision strength <0..20>")
+            }
+        )
     }
 
     @Test
@@ -205,13 +222,48 @@ class SceneCommandAdapterTest {
         fixture.command.execute(fixture.player, "npc", "guide", "rotation", "add", "1", "1", "1")
         fixture.command.execute(fixture.player, "npc", "guide", "scale", "set", "3")
         fixture.command.execute(fixture.player, "npc", "guide", "label", "set", "Guide NPC")
+        fixture.command.execute(fixture.player, "npc", "guide", "collision", "strength", "12.5")
+        fixture.command.execute(fixture.player, "npc", "guide", "collision", "set", "bounce")
         fixture.command.execute(fixture.player, "npc", "guide", "clone", "guide-copy")
         val guide =
             fixture.document().elements.filterIsInstance<Npc>().first { it.id.value == "guide" }
         assertEquals(Vec3(3.0, 3.0, 3.0), guide.transform.scale)
         assertEquals("Guide NPC", PlainTextComponentSerializer.plainText().serialize(guide.label!!))
+        assertEquals(NpcCollision(NpcCollisionMode.BOUNCE, 12.5), guide.collision)
+        assertEquals(
+            guide.collision,
+            fixture
+                .document()
+                .elements
+                .filterIsInstance<Npc>()
+                .first { it.id.value == "guide-copy" }
+                .collision,
+        )
         fixture.command.execute(fixture.player, "npc", "guide", "remove")
         assertTrue(fixture.document().elements.any { it.id.value == "guide-copy" })
+    }
+
+    @Test
+    fun `invalid collision strength command leaves document and history unchanged`() {
+        val fixture = fixture()
+        fixture.command.execute(fixture.player, "create", "grounds:editing", "Editing")
+        fixture.command.execute(fixture.player, "npc", "guide", "create", "grounds:editor/guide")
+        fixture.command.execute(fixture.player, "npc", "guide", "select")
+        val original = fixture.document()
+        val undoSize = fixture.sessions.session(fixture.worldId)!!.history.undoSize
+
+        listOf("NaN", "Infinity", "-0.1", "20.1").forEach { strength ->
+            fixture.command.execute(
+                fixture.player,
+                "npc",
+                "guide",
+                "collision",
+                "strength",
+                strength,
+            )
+            assertSame(original, fixture.document())
+            assertEquals(undoSize, fixture.sessions.session(fixture.worldId)!!.history.undoSize)
+        }
     }
 
     @Test
