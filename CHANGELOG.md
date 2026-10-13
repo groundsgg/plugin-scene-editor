@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/groundsgg/plugin-scene-editor/compare/v0.3.1...v0.4.0) (2026-10-13)
+
+
+### Features
+
+* add NPC collision authoring ([#23](https://github.com/groundsgg/plugin-scene-editor/issues/23)) ([7609859](https://github.com/groundsgg/plugin-scene-editor/commit/76098598d2c81836607fc282cd95bc6f628314fd))
+
 ## [0.3.1](https://github.com/groundsgg/plugin-scene-editor/compare/v0.3.0...v0.3.1) (2026-10-12)
 
 
