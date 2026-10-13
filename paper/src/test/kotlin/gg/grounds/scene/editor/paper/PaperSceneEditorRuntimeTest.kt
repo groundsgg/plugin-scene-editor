@@ -4,6 +4,7 @@ import de.eintosti.buildsystem.api.BuildSystem
 import gg.grounds.scene.editor.SceneEditStatus
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask
 import java.lang.reflect.Proxy
+import java.util.UUID
 import java.util.function.Consumer
 import org.bukkit.plugin.ServicePriority
 import org.junit.jupiter.api.AfterEach
@@ -16,8 +17,10 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.function.Executable
 import org.mockbukkit.mockbukkit.MockBukkit
+import org.mockito.Mockito.doAnswer
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
+import org.mockito.Mockito.times
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 
@@ -69,6 +72,45 @@ class PaperSceneEditorRuntimeTest {
         val second = PaperSceneEditorRuntime(MockBukkit.createMockPlugin())
 
         assertNotSame(first.sessions, second.sessions)
+    }
+
+    @Test
+    fun `runtime loads current players after registration and closes loader before sessions`() {
+        val server = MockBukkit.mock()
+        val dependency = MockBukkit.createMockPlugin()
+        server.servicesManager.register(
+            BuildSystem::class.java,
+            buildSystem(),
+            dependency,
+            ServicePriority.Normal,
+        )
+        val plugin = MockBukkit.createMockPlugin()
+        val player = server.addPlayer()
+        val loader = mock(PaperAutomaticSceneLoader::class.java)
+        lateinit var runtime: PaperSceneEditorRuntime
+        val worldId = UUID.randomUUID()
+        val closedWhileSessionOpen = mutableListOf<Boolean>()
+        doAnswer {
+                closedWhileSessionOpen += runtime.sessions.session(worldId) != null
+                null
+            }
+            .`when`(loader)
+            .close()
+        runtime =
+            PaperSceneEditorRuntime(
+                plugin,
+                automaticLoaderFactory = { _, _, _, _ -> loader },
+                commandRegistrar = { _, _ -> },
+            )
+
+        runtime.register()
+        runtime.sessions.open(worldId, runtime.catalogs.newDocument("grounds:runtime-close"))
+        verify(loader).openFor(player)
+        runtime.close()
+
+        verify(loader, times(1)).close()
+        assertEquals(listOf(true), closedWhileSessionOpen)
+        assertNull(runtime.sessions.session(worldId))
     }
 
     @Test

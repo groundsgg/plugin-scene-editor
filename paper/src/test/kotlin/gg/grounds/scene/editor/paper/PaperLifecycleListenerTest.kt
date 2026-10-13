@@ -12,6 +12,7 @@ import java.util.UUID
 import org.bukkit.World
 import org.bukkit.entity.Player
 import org.bukkit.event.player.PlayerChangedWorldEvent
+import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.world.WorldUnloadEvent
 import org.bukkit.plugin.java.JavaPlugin
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -45,6 +46,28 @@ class PaperLifecycleListenerTest {
     }
 
     @Test
+    fun `join and world change request automatic open for the entered world`() {
+        val sessions = EditorSessionService(catalogs)
+        val previews = mock(PaperPreviewAdapter::class.java)
+        val entered = mutableListOf<Player>()
+        val listener =
+            PaperPlayerLifecycleListener(
+                sessions,
+                previews,
+                onWorldEntry = entered::add,
+            )
+        val from = mock(World::class.java)
+        `when`(from.uid).thenReturn(worldId)
+        val player = mock(Player::class.java)
+        `when`(player.uniqueId).thenReturn(playerId)
+
+        listener.onJoin(PlayerJoinEvent(player, null as net.kyori.adventure.text.Component?))
+        listener.onWorldChange(PlayerChangedWorldEvent(player, from))
+
+        assertEquals(listOf(player, player), entered)
+    }
+
+    @Test
     fun `world unload closes dirty session and removes every world preview`() {
         val sessions = selectedSession()
         sessions.deselect(worldId, playerId)
@@ -55,13 +78,21 @@ class PaperLifecycleListenerTest {
         `when`(plugin.server).thenReturn(server)
         val player = mock(Player::class.java)
         `when`(server.getPlayer(playerId)).thenReturn(player)
-        val listener = PaperWorldLifecycleListener(plugin, sessions, previews)
+        val invalidated = mutableListOf<World>()
+        val listener =
+            PaperWorldLifecycleListener(
+                plugin,
+                sessions,
+                previews,
+                beforeWorldClose = invalidated::add,
+            )
         val world = mock(World::class.java)
         `when`(world.uid).thenReturn(worldId)
 
         listener.onWorldUnload(WorldUnloadEvent(world))
 
         assertEquals(null, sessions.session(worldId))
+        assertEquals(listOf(world), invalidated)
         verify(previews).clearWorld(worldId)
         assertTrue(
             org.mockito.Mockito.mockingDetails(player).invocations.any {
