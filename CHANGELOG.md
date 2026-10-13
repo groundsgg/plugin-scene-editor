@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/groundsgg/plugin-scene-editor/compare/v0.4.0...v0.5.0) (2026-10-13)
+
+
+### Features
+
+* author fractional NPC bounce distance ([#25](https://github.com/groundsgg/plugin-scene-editor/issues/25)) ([1c08649](https://github.com/groundsgg/plugin-scene-editor/commit/1c0864968a5b4b439e9a5b44a44e939b83e9fe98))
+
 ## [0.4.0](https://github.com/groundsgg/plugin-scene-editor/compare/v0.3.1...v0.4.0) (2026-10-13)
 
 
