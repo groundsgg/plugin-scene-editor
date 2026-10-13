@@ -12,6 +12,7 @@ import gg.grounds.scene.editor.session.ReloadPreparationResult
 import gg.grounds.scene.editor.session.SessionBootstrapResult
 import gg.grounds.scene.format.AssetKey
 import gg.grounds.scene.format.LocalId
+import gg.grounds.scene.format.NpcCollisionMode
 import gg.grounds.scene.format.SceneMetadata
 import gg.grounds.scene.format.Vec3
 import java.util.Locale
@@ -82,7 +83,7 @@ class SceneCommand(
         if (args.isEmpty()) {
             feedback.info(
                 sender,
-                "Use /scene create, info, validate, save, prop, npc, lease, recovery, or catalogs status.",
+                "Use /scene create, info, validate, save, prop, npc, lease, recovery, or catalogs status. NPC collision: /scene npc <id> collision set none|solid|bounce or collision strength <0..20>.",
             )
             return true
         }
@@ -409,6 +410,26 @@ class SceneCommand(
                         ),
                         gg.grounds.scene.format.ActionKey(args.getOrNull(5) ?: return null),
                     )
+                else null
+            "collision" ->
+                if (kind == "npc")
+                    when (args.getOrNull(3)?.lowercase(Locale.ROOT)) {
+                        "set" ->
+                            SceneMutations.setNpcCollisionMode(
+                                player.uniqueId,
+                                id,
+                                NpcCollisionMode.valueOf(
+                                    args.getOrNull(4)?.uppercase(Locale.ROOT) ?: return null
+                                ),
+                            )
+                        "strength" ->
+                            SceneMutations.setNpcBounceStrength(
+                                player.uniqueId,
+                                id,
+                                finite(args.getOrNull(4)),
+                            )
+                        else -> null
+                    }
                 else null
             "position" -> transformPosition(player, id, args)
             "rotation" -> transformRotation(player, id, args)

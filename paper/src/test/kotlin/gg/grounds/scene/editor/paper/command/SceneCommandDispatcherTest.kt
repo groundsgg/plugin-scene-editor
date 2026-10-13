@@ -83,5 +83,17 @@ class SceneCommandDispatcherTest {
                 listOf("npc", "id", "action", "set", "right_click", "grounds:lobby/open_navigator")
             ),
         )
+        listOf(
+                listOf("npc", "id", "collision", "set", "none"),
+                listOf("npc", "id", "collision", "set", "solid"),
+                listOf("npc", "id", "collision", "set", "bounce"),
+                listOf("npc", "id", "collision", "strength", "12.5"),
+            )
+            .forEach { args ->
+                assertEquals(
+                    SceneCommandDispatcher.Route.Element("npc", "collision"),
+                    SceneCommandDispatcher.route(args),
+                )
+            }
     }
 }

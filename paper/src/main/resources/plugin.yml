@@ -99,6 +99,10 @@ permissions:
     description: Change NPC labels
   grounds.scene.npc.action.set:
     description: Set parameterless catalog actions on NPC triggers
+  grounds.scene.npc.collision.set:
+    description: Set NPC collision mode
+  grounds.scene.npc.collision.strength:
+    description: Set NPC bounce strength
   grounds.scene.npc.clone:
     description: Clone NPCs
   grounds.scene.npc.remove:

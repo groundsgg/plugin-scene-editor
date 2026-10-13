@@ -9,6 +9,9 @@ import gg.grounds.scene.editor.repository.WorldSceneRepository
 import gg.grounds.scene.editor.session.EditorSessionService
 import gg.grounds.scene.format.AssetKey
 import gg.grounds.scene.format.LocalId
+import gg.grounds.scene.format.Npc
+import gg.grounds.scene.format.NpcCollision
+import gg.grounds.scene.format.NpcCollisionMode
 import gg.grounds.scene.format.SceneDecodeResult
 import gg.grounds.scene.format.SceneEncodeResult
 import gg.grounds.scene.format.SceneJson
@@ -57,18 +60,31 @@ class CanonicalSceneRoundTripTest {
                 )
                 .accepted
         )
-
+        assertTrue(
+            service.select(worldId, actor, LocalId("guide"))
+                is gg.grounds.scene.editor.session.SelectionResult.Selected
+        )
+        assertTrue(
+            service
+                .mutate(
+                    worldId,
+                    SceneMutations.setNpcBounceStrength(actor, LocalId("guide"), 12.5),
+                )
+                .accepted
+        )
         val repository = WorldSceneRepository(root)
         assertTrue(service.save(worldId, repository) is SceneSaveResult.Saved)
         val bytes = Files.readAllBytes(root.resolve("scene.json"))
         val decoded = SceneJson.decode(bytes)
         assertTrue(decoded is SceneDecodeResult.Success)
+        val decodedScene = (decoded as SceneDecodeResult.Success).scene
+        assertEquals(
+            NpcCollision(NpcCollisionMode.NONE, 12.5),
+            decodedScene.elements.filterIsInstance<Npc>().single().collision,
+        )
         assertEquals(
             bytes.toList(),
-            (SceneJson.encode((decoded as SceneDecodeResult.Success).scene)
-                    as SceneEncodeResult.Success)
-                .bytes
-                .toList(),
+            (SceneJson.encode(decodedScene) as SceneEncodeResult.Success).bytes.toList(),
         )
 
         val reloaded = EditorSessionService(catalogs)

@@ -57,7 +57,7 @@ class SceneCommandAuthorizer(private val hasPermission: (String) -> Boolean) {
         val operation = if (path.getOrNull(1) == "list") "list" else path.getOrNull(2)
         val allowed =
             setOf("list", "create", "select", "position", "rotation", "scale", "clone", "remove") +
-                if (kind == "npc") setOf("label", "action") else emptySet()
+                if (kind == "npc") setOf("label", "action", "collision") else emptySet()
         return operation
             ?.takeIf { it in allowed }
             ?.let { allowedOperation ->
@@ -69,6 +69,7 @@ class SceneCommandAuthorizer(private val hasPermission: (String) -> Boolean) {
                         "scale",
                         "label",
                         "action" -> path.getOrNull(3)?.let(::listOf) ?: listOf("set")
+                        "collision" -> path.getOrNull(3)?.let(::listOf) ?: listOf("set", "strength")
                         else -> listOf<String?>(null)
                     }
                 modes.map { mode ->

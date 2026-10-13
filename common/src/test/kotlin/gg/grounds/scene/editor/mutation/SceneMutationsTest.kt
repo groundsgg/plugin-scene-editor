@@ -18,6 +18,8 @@ import gg.grounds.scene.format.LocalBounds
 import gg.grounds.scene.format.LocalId
 import gg.grounds.scene.format.LookBehavior
 import gg.grounds.scene.format.Npc
+import gg.grounds.scene.format.NpcCollision
+import gg.grounds.scene.format.NpcCollisionMode
 import gg.grounds.scene.format.Prop
 import gg.grounds.scene.format.SceneDocument
 import gg.grounds.scene.format.SceneHand
@@ -83,7 +85,125 @@ class SceneMutationsTest {
         assertEquals(null, npc.label)
         assertEquals(null, npc.proximity)
         assertTrue(npc.bindings.isEmpty())
+        assertEquals(NpcCollision(), npc.collision)
         assertEquals(LocalBounds(Vec3(0.0, 0.9, 0.0), Vec3(0.6, 1.8, 0.6)), npc.interactionBounds)
+    }
+
+    @Test
+    fun `npc collision edits retain the other collision setting`() {
+        val original = npcDocument()
+
+        val withStrength =
+            SceneMutations.setNpcBounceStrength(actor, LocalId("guide"), 12.5)
+                .apply(original, binding)
+                .documentOrThrow()
+        val withMode =
+            SceneMutations.setNpcCollisionMode(actor, LocalId("guide"), NpcCollisionMode.SOLID)
+                .apply(withStrength, binding)
+                .documentOrThrow()
+        val changedStrength =
+            SceneMutations.setNpcBounceStrength(actor, LocalId("guide"), 3.0)
+                .apply(withMode, binding)
+                .documentOrThrow()
+        val minimum =
+            SceneMutations.setNpcBounceStrength(actor, LocalId("guide"), 0.0)
+                .apply(withMode, binding)
+                .documentOrThrow()
+        val maximum =
+            SceneMutations.setNpcBounceStrength(actor, LocalId("guide"), 20.0)
+                .apply(withMode, binding)
+                .documentOrThrow()
+
+        assertEquals(
+            NpcCollision(NpcCollisionMode.NONE, 12.5),
+            (withStrength.elements.single() as Npc).collision,
+        )
+        assertEquals(
+            NpcCollision(NpcCollisionMode.SOLID, 12.5),
+            (withMode.elements.single() as Npc).collision,
+        )
+        assertEquals(
+            NpcCollision(NpcCollisionMode.SOLID, 3.0),
+            (changedStrength.elements.single() as Npc).collision,
+        )
+        assertEquals(
+            listOf(
+                NpcCollision(NpcCollisionMode.SOLID, 0.0),
+                NpcCollision(NpcCollisionMode.SOLID, 20.0),
+            ),
+            listOf(minimum, maximum).map { (it.elements.single() as Npc).collision },
+        )
+    }
+
+    @Test
+    fun `npc body label transform action and clone edits preserve collision`() {
+        val collision = NpcCollision(NpcCollisionMode.BOUNCE, 12.5)
+        val action = ActionKey("grounds:lobby/open_navigator")
+        val catalogs =
+            SceneCatalogBinding(
+                testAssets,
+                ActionCatalog(
+                    CatalogId("grounds:actions"),
+                    "1",
+                    mapOf(action to ActionDefinition(action, "Navigator", "Open it", emptyMap())),
+                ),
+            )
+        val withMode =
+            SceneMutations.setNpcCollisionMode(actor, LocalId("guide"), collision.mode)
+                .apply(npcDocument(catalogs), catalogs)
+                .documentOrThrow()
+        val configured =
+            SceneMutations.setNpcBounceStrength(actor, LocalId("guide"), collision.bounceStrength)
+                .apply(withMode, catalogs)
+                .documentOrThrow()
+        val body =
+            SceneMutations.replaceNpcBody(
+                    actor,
+                    LocalId("guide"),
+                    AssetKey("grounds:editor/guide-alt"),
+                )
+                .apply(configured, catalogs)
+                .documentOrThrow()
+        val label =
+            SceneMutations.setLabel(actor, LocalId("guide"), Component.text("Guide"))
+                .apply(body, catalogs)
+                .documentOrThrow()
+        val transformed =
+            SceneMutations.setPosition(actor, LocalId("guide"), Vec3(7.0, 8.0, 9.0))
+                .apply(label, catalogs)
+                .documentOrThrow()
+        val withAction =
+            SceneMutations.setApplicationAction(
+                    actor,
+                    LocalId("guide"),
+                    SceneTrigger.RIGHT_CLICK,
+                    action,
+                )
+                .apply(transformed, catalogs)
+                .documentOrThrow()
+        val cloned =
+            SceneMutations.clone(actor, LocalId("guide"), LocalId("guide-copy"))
+                .apply(withAction, catalogs)
+                .documentOrThrow()
+
+        listOf(body, label, transformed, withAction).forEach { document ->
+            assertEquals(collision, (document.elements.single() as Npc).collision)
+        }
+        assertEquals(listOf(collision, collision), cloned.elements.map { (it as Npc).collision })
+    }
+
+    @Test
+    fun `invalid npc bounce strengths reject without replacing the document`() {
+        val original = npcDocument()
+
+        listOf(-0.1, 20.1, Double.NaN, Double.POSITIVE_INFINITY).forEach { strength ->
+            val result =
+                SceneMutations.setNpcBounceStrength(actor, LocalId("guide"), strength)
+                    .apply(original, binding)
+
+            assertTrue(result is SceneMutationResult.Rejected)
+            assertSame(original, result.document)
+        }
     }
 
     @Test
@@ -329,6 +449,16 @@ class SceneMutationsTest {
 
     private fun SceneMutationResult.documentOrThrow(): SceneDocument = assertSuccess(this)
 
+    private fun npcDocument(catalogs: SceneCatalogBinding = binding): SceneDocument =
+        SceneMutations.createNpc(
+                actor,
+                LocalId("guide"),
+                AssetKey("grounds:editor/guide"),
+                placement,
+            )
+            .apply(catalogs.newDocument("grounds:test"), catalogs)
+            .documentOrThrow()
+
     private companion object {
         val placement = PlayerPlacement(Vec3(0.0, 64.0, 0.0), 0.0)
         val testAssets =
@@ -359,6 +489,14 @@ class SceneMutationsTest {
                             AssetKind.NPC_BODY,
                             emptySet(),
                             LocalBounds(Vec3(0.0, 0.9, 0.0), Vec3(0.6, 1.8, 0.6)),
+                            emptyMap(),
+                        ),
+                    AssetKey("grounds:editor/guide-alt") to
+                        AssetDefinition(
+                            AssetKey("grounds:editor/guide-alt"),
+                            AssetKind.NPC_BODY,
+                            emptySet(),
+                            LocalBounds(Vec3(0.0, 1.0, 0.0), Vec3(0.8, 2.0, 0.8)),
                             emptyMap(),
                         ),
                     AssetKey("grounds:editor/no-bounds") to

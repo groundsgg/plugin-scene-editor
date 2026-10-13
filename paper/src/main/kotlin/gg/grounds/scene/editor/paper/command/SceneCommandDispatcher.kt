@@ -76,6 +76,10 @@ object SceneCommandDispatcher {
                     kind == "npc" &&
                         args.getOrNull(3)?.lowercase(Locale.ROOT) == "set" &&
                         args.size == 6
+                "collision" ->
+                    kind == "npc" &&
+                        args.getOrNull(3)?.lowercase(Locale.ROOT) in setOf("set", "strength") &&
+                        args.size == 5
                 else -> false
             }
         return if (valid) Route.Element(kind, operation) else Route.Invalid
