@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/groundsgg/plugin-scene-editor/compare/v0.5.0...v0.5.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **paper:** open existing scenes on world entry ([#27](https://github.com/groundsgg/plugin-scene-editor/issues/27)) ([35dc02d](https://github.com/groundsgg/plugin-scene-editor/commit/35dc02df55b2f86a9d5c5a3ce62a65420a20593d))
+
 ## [0.5.0](https://github.com/groundsgg/plugin-scene-editor/compare/v0.4.0...v0.5.0) (2026-10-13)
 
 
