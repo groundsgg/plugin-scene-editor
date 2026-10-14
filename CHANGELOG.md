@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/groundsgg/plugin-scene-editor/compare/v0.5.1...v0.6.0) (2026-10-14)
+
+
+### Features
+
+* **chat:** unify localized scene-editor messages ([#30](https://github.com/groundsgg/plugin-scene-editor/issues/30)) ([e8d4bee](https://github.com/groundsgg/plugin-scene-editor/commit/e8d4beeab568347ffb72fc98915ae421cdc26580))
+
 ## [0.5.1](https://github.com/groundsgg/plugin-scene-editor/compare/v0.5.0...v0.5.1) (2026-10-13)
 
 
