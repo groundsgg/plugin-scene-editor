@@ -1,6 +1,6 @@
 package gg.grounds.scene.editor.paper.command
 
-import gg.grounds.i18n.SystemCategory
+import gg.grounds.i18n.SystemLevel
 import gg.grounds.i18n.Translations
 import gg.grounds.scene.editor.catalog.SceneCatalogBinding
 import gg.grounds.scene.editor.paper.BuildWorldTarget
@@ -595,10 +595,7 @@ class SceneCommandAdapterTest {
             val rendered =
                 PlainTextComponentSerializer.plainText()
                     .serialize(messages.render(message, Locale.ENGLISH, *args))
-            if (
-                message.category == SystemCategory.ERROR ||
-                    message.category == SystemCategory.WARNING
-            )
+            if (message.level == SystemLevel.ERROR || message.level == SystemLevel.WARNING)
                 errors += rendered
             else infos += rendered
         }

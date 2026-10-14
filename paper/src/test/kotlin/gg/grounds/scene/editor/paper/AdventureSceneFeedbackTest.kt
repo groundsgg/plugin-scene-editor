@@ -17,7 +17,7 @@ class AdventureSceneFeedbackTest {
         AdventureSceneFeedback().send(sender, SceneMessage.SAVED)
 
         assertEquals(
-            "[Grounds] Success › Scene saved locally to scene.json.",
+            "[Grounds] General › Scene saved locally to scene.json.",
             sentPlainText(sender),
         )
     }
@@ -33,7 +33,7 @@ class AdventureSceneFeedbackTest {
                 "reason" to "I/O failure",
             )
 
-        assertEquals("[Grounds] Error › Scene save failed: I/O failure.", sentPlainText(sender))
+        assertEquals("[Grounds] General › Scene save failed: I/O failure.", sentPlainText(sender))
     }
 
     private fun sentPlainText(sender: CommandSender): String {
