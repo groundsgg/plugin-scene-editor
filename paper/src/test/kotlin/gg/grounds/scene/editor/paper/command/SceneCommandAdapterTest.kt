@@ -1,7 +1,10 @@
 package gg.grounds.scene.editor.paper.command
 
+import gg.grounds.i18n.SystemLevel
+import gg.grounds.i18n.Translations
 import gg.grounds.scene.editor.catalog.SceneCatalogBinding
 import gg.grounds.scene.editor.paper.BuildWorldTarget
+import gg.grounds.scene.editor.paper.SceneMessage
 import gg.grounds.scene.editor.paper.tool.EditorTool
 import gg.grounds.scene.editor.repository.WorldSceneRepository
 import gg.grounds.scene.editor.session.EditorSessionService
@@ -31,6 +34,7 @@ import gg.grounds.scene.format.TriggerBinding
 import gg.grounds.scene.format.Vec3
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.atomic.AtomicBoolean
@@ -577,13 +581,23 @@ class SceneCommandAdapterTest {
     private class Feedback : SceneCommandFeedback {
         val infos = mutableListOf<String>()
         val errors = mutableListOf<String>()
+        private val messages =
+            Translations.forBundle(
+                "gg.grounds.scene.editor.messages",
+                javaClass.classLoader,
+            )
 
-        override fun info(sender: CommandSender, message: String) {
-            infos += message
-        }
-
-        override fun error(sender: CommandSender, message: String) {
-            errors += message
+        override fun send(
+            sender: CommandSender,
+            message: SceneMessage,
+            vararg args: Pair<String, Any>,
+        ) {
+            val rendered =
+                PlainTextComponentSerializer.plainText()
+                    .serialize(messages.render(message, Locale.ENGLISH, *args))
+            if (message.level == SystemLevel.ERROR || message.level == SystemLevel.WARNING)
+                errors += rendered
+            else infos += rendered
         }
     }
 
