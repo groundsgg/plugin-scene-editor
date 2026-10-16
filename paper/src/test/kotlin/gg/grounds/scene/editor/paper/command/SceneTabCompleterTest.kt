@@ -60,6 +60,26 @@ class SceneTabCompleterTest {
     }
 
     @Test
+    fun `completes npc collision operations and modes`() {
+        assertEquals(
+            listOf("collision"),
+            completer.complete(null, arrayOf("npc", "guide", "coll")),
+        )
+        assertEquals(
+            listOf("distance", "set", "strength"),
+            completer.complete(null, arrayOf("npc", "guide", "collision", "")),
+        )
+        assertEquals(
+            listOf("bounce", "none", "solid"),
+            completer.complete(null, arrayOf("npc", "guide", "collision", "set", "")),
+        )
+        assertEquals(
+            listOf("0", "0.5", "1", "1.5", "2"),
+            completer.complete(null, arrayOf("npc", "guide", "collision", "distance", "")),
+        )
+    }
+
+    @Test
     fun `filters mixed case paths using normalized leaf permissions`() {
         val sender = mock(CommandSender::class.java)
         `when`(sender.hasPermission("grounds.scene.prop.position.here")).thenReturn(true)

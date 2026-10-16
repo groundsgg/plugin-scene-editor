@@ -4,8 +4,8 @@ import gg.grounds.scene.editor.paper.preview.PaperPreviewAdapter
 import gg.grounds.scene.editor.session.EditorSessionService
 import gg.grounds.scene.editor.session.SessionCloseResult
 import gg.grounds.scene.editor.session.SessionCloseSnapshot
-import net.kyori.adventure.text.Component
 import org.bukkit.Server
+import org.bukkit.World
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
@@ -16,9 +16,12 @@ class PaperWorldLifecycleListener(
     private val plugin: JavaPlugin,
     private val sessions: EditorSessionService,
     private val previews: PaperPreviewAdapter,
+    private val beforeWorldClose: (World) -> Unit = {},
+    private val feedback: AdventureSceneFeedback = AdventureSceneFeedback(),
 ) : Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     fun onWorldUnload(event: WorldUnloadEvent) {
+        beforeWorldClose(event.world)
         val worldId = event.world.uid
         val closed = sessions.closeWorld(worldId)
         previews.clearWorld(worldId)
@@ -35,9 +38,7 @@ class PaperWorldLifecycleListener(
                 "Closing dirty scene editor session for world ${snapshot.worldId} at generation ${snapshot.generation}"
             )
             snapshot.editorPlayers.forEach { playerId ->
-                server
-                    .getPlayer(playerId)
-                    ?.sendMessage(Component.text("Scene editor closed with unsaved changes."))
+                server.getPlayer(playerId)?.let { feedback.send(it, SceneMessage.DIRTY_CLOSE) }
             }
         }
     }

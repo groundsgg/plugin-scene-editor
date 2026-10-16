@@ -69,7 +69,8 @@ class SceneTabCompleter(
                                     "clone",
                                     "remove",
                                 ) +
-                                    if (args[0].equals("npc", true)) listOf("label", "action")
+                                    if (args[0].equals("npc", true))
+                                        listOf("label", "action", "collision")
                                     else emptyList()
                             else -> emptyList()
                         }
@@ -84,10 +85,23 @@ class SceneTabCompleter(
                         args[2].equals("scale", true) -> listOf("set")
                         args[2].equals("label", true) -> listOf("set")
                         args[2].equals("action", true) -> listOf("set")
+                        args[2].equals("collision", true) -> listOf("set", "strength", "distance")
                         else -> emptyList()
                     }
                 5 ->
                     if (
+                        args[0].equals("npc", true) &&
+                            args[2].equals("collision", true) &&
+                            args[3].equals("set", true)
+                    )
+                        listOf("none", "solid", "bounce")
+                    else if (
+                        args[0].equals("npc", true) &&
+                            args[2].equals("collision", true) &&
+                            args[3].equals("distance", true)
+                    )
+                        listOf("0", "0.5", "1", "1.5", "2")
+                    else if (
                         args[0].equals("npc", true) &&
                             args[2].equals("action", true) &&
                             args[3].equals("set", true)

@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.6.0](https://github.com/groundsgg/plugin-scene-editor/compare/v0.5.1...v0.6.0) (2026-10-14)
+
+
+### Features
+
+* **chat:** unify localized scene-editor messages ([#30](https://github.com/groundsgg/plugin-scene-editor/issues/30)) ([e8d4bee](https://github.com/groundsgg/plugin-scene-editor/commit/e8d4beeab568347ffb72fc98915ae421cdc26580))
+
+## [0.5.1](https://github.com/groundsgg/plugin-scene-editor/compare/v0.5.0...v0.5.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **paper:** open existing scenes on world entry ([#27](https://github.com/groundsgg/plugin-scene-editor/issues/27)) ([35dc02d](https://github.com/groundsgg/plugin-scene-editor/commit/35dc02df55b2f86a9d5c5a3ce62a65420a20593d))
+
+## [0.5.0](https://github.com/groundsgg/plugin-scene-editor/compare/v0.4.0...v0.5.0) (2026-10-13)
+
+
+### Features
+
+* author fractional NPC bounce distance ([#25](https://github.com/groundsgg/plugin-scene-editor/issues/25)) ([1c08649](https://github.com/groundsgg/plugin-scene-editor/commit/1c0864968a5b4b439e9a5b44a44e939b83e9fe98))
+
+## [0.4.0](https://github.com/groundsgg/plugin-scene-editor/compare/v0.3.1...v0.4.0) (2026-10-13)
+
+
+### Features
+
+* add NPC collision authoring ([#23](https://github.com/groundsgg/plugin-scene-editor/issues/23)) ([7609859](https://github.com/groundsgg/plugin-scene-editor/commit/76098598d2c81836607fc282cd95bc6f628314fd))
+
+## [0.3.1](https://github.com/groundsgg/plugin-scene-editor/compare/v0.3.0...v0.3.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* align scene editor with stable asset catalog ([#21](https://github.com/groundsgg/plugin-scene-editor/issues/21)) ([d2e28ea](https://github.com/groundsgg/plugin-scene-editor/commit/d2e28ea3d16ec7f11425e078f0cb4119ba923329))
+
 ## [0.3.0](https://github.com/groundsgg/plugin-scene-editor/compare/v0.2.1...v0.3.0) (2026-09-08)
 
 

@@ -56,6 +56,24 @@ class SceneCommandAuthorizerTest {
     }
 
     @Test
+    fun `npc collision mutations require their exact leaf permissions`() {
+        val authorizer = SceneCommandAuthorizer { it == "grounds.scene.npc.collision.strength" }
+
+        assertTrue(authorizer.isAllowed(listOf("npc", "guide", "collision", "strength", "12.5")))
+        assertFalse(authorizer.isAllowed(listOf("npc", "guide", "collision", "set", "bounce")))
+    }
+
+    @Test
+    fun `npc collision parent discovers distance permission`() {
+        val authorizer = SceneCommandAuthorizer {
+            it == "grounds.scene.npc.collision.distance"
+        }
+
+        assertTrue(authorizer.isAllowed(listOf("npc", "guide", "collision")))
+        assertTrue(authorizer.isAllowed(listOf("npc", "guide", "collision", "distance", "1.5")))
+    }
+
+    @Test
     fun `override administrators may reach explicit lease release`() {
         val authorizer = SceneCommandAuthorizer { it == "grounds.scene.lease.override" }
 

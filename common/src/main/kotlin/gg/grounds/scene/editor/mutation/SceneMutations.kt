@@ -10,6 +10,8 @@ import gg.grounds.scene.format.EulerRotation
 import gg.grounds.scene.format.LocalId
 import gg.grounds.scene.format.LookBehavior
 import gg.grounds.scene.format.Npc
+import gg.grounds.scene.format.NpcCollision
+import gg.grounds.scene.format.NpcCollisionMode
 import gg.grounds.scene.format.Prop
 import gg.grounds.scene.format.SceneDocument
 import gg.grounds.scene.format.SceneElement
@@ -112,6 +114,18 @@ object SceneMutations {
         trigger: SceneTrigger,
         action: ActionKey,
     ): SceneMutation = ApplicationActionEdit(actor, target, trigger, action)
+
+    fun setNpcCollisionMode(
+        actor: UUID,
+        target: LocalId,
+        mode: NpcCollisionMode,
+    ): SceneMutation = NpcCollisionModeEdit(actor, target, mode)
+
+    fun setNpcBounceStrength(actor: UUID, target: LocalId, strength: Double): SceneMutation =
+        NpcBounceStrengthEdit(actor, target, strength)
+
+    fun setNpcBounceDistance(actor: UUID, target: LocalId, distance: Double): SceneMutation =
+        NpcBounceDistanceEdit(actor, target, distance)
 
     fun remove(actor: UUID, target: LocalId): SceneMutation = Remove(actor, target)
 
@@ -223,6 +237,7 @@ object SceneMutations {
                             bounds,
                             element.proximity,
                             element.bindings,
+                            element.collision,
                         )
                     }
                     else -> return rejected(document, SceneMutationRejection.WRONG_ELEMENT_KIND)
@@ -318,8 +333,66 @@ object SceneMutations {
                         element.interactionBounds,
                         element.proximity,
                         element.bindings,
+                        element.collision,
                     )
             }
+    }
+
+    private data class NpcCollisionModeEdit(
+        override val actor: UUID,
+        override val target: LocalId,
+        private val mode: NpcCollisionMode,
+    ) : SceneMutation {
+        override val name = "npc.collision.set"
+
+        override fun apply(
+            document: SceneDocument,
+            catalogs: SceneCatalogBinding,
+        ): SceneMutationResult =
+            changeElement(document, target) { element ->
+                val npc = element as? Npc ?: return@changeElement null
+                withCollision(npc, npc.collision.copy(mode = mode))
+            }
+    }
+
+    private data class NpcBounceStrengthEdit(
+        override val actor: UUID,
+        override val target: LocalId,
+        private val strength: Double,
+    ) : SceneMutation {
+        override val name = "npc.collision.strength"
+
+        override fun apply(
+            document: SceneDocument,
+            catalogs: SceneCatalogBinding,
+        ): SceneMutationResult {
+            if (!strength.isFinite() || strength !in 0.0..20.0)
+                return rejected(document, SceneMutationRejection.INTRINSIC_INVALID)
+            return changeElement(document, target) { element ->
+                val npc = element as? Npc ?: return@changeElement null
+                withCollision(npc, NpcCollision(npc.collision.mode, strength, null))
+            }
+        }
+    }
+
+    private data class NpcBounceDistanceEdit(
+        override val actor: UUID,
+        override val target: LocalId,
+        private val distance: Double,
+    ) : SceneMutation {
+        override val name = "npc.collision.distance"
+
+        override fun apply(
+            document: SceneDocument,
+            catalogs: SceneCatalogBinding,
+        ): SceneMutationResult {
+            if (!distance.isFinite() || distance !in 0.0..20.0)
+                return rejected(document, SceneMutationRejection.INTRINSIC_INVALID)
+            return changeElement(document, target) { element ->
+                val npc = element as? Npc ?: return@changeElement null
+                withCollision(npc, NpcCollision(npc.collision.mode, 6.0, distance))
+            }
+        }
     }
 
     private data class ApplicationActionEdit(
@@ -370,6 +443,7 @@ object SceneMutations {
                             0,
                             listOf(ApplicationAction(action, emptyMap())),
                         ),
+                    npc.collision,
                 )
             }
         }
@@ -445,6 +519,7 @@ object SceneMutations {
                     element.interactionBounds,
                     element.proximity,
                     element.bindings,
+                    element.collision,
                 )
             else -> element
         }
@@ -467,9 +542,28 @@ object SceneMutations {
                     element.interactionBounds,
                     element.proximity,
                     element.bindings,
+                    element.collision,
                 )
             else -> element
         }
+
+    private fun withCollision(element: Npc, collision: NpcCollision): Npc =
+        Npc(
+            element.id,
+            element.group,
+            element.transform,
+            element.visible,
+            element.activation,
+            element.body,
+            element.label,
+            element.labelOffset,
+            element.look,
+            element.initialAnimation,
+            element.interactionBounds,
+            element.proximity,
+            element.bindings,
+            collision,
+        )
 
     private fun hasUnverifiedApplicationAction(
         element: SceneElement,

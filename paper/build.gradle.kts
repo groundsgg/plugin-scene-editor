@@ -14,6 +14,7 @@ repositories { maven("https://repo.papermc.io/repository/maven-public/") }
 
 dependencies {
     implementation(project(":common"))
+    implementation("gg.grounds:library-i18n:0.4.0")
     compileOnly("de.eintosti:buildsystem-api:4.0.0")
 
     testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v26.1.2:4.115.0")
