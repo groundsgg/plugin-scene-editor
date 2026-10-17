@@ -5,8 +5,42 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.yaml.snakeyaml.Yaml
 
 class PaperPackagingTest {
+    @Test
+    fun `catalog includes every declared Bukkit permission with the artifact version`() {
+        JarFile(System.getProperty("paper.shadowJar")).use { jar ->
+            fun read(name: String) =
+                jar.getInputStream(requireNotNull(jar.getJarEntry(name))).bufferedReader().use {
+                    it.readText()
+                }
+            val descriptor = Yaml().load<Map<String, Any>>(read("plugin.yml"))
+            val resource = "META-INF/grounds/permissions/plugin-scene-editor.json"
+            assertEquals(
+                listOf(resource),
+                read("META-INF/grounds/permissions.index")
+                    .lineSequence()
+                    .filter { it.isNotBlank() }
+                    .toList(),
+            )
+            // Parse raw maps so dotted permission names stay literal, rather than
+            // being converted into Bukkit configuration paths.
+            val catalog = Yaml().load<Map<String, Any>>(read(resource))
+            assertEquals("plugin-scene-editor", catalog["source"])
+            assertEquals(descriptor["version"], catalog["sourceVersion"])
+            @Suppress("UNCHECKED_CAST")
+            val entries = catalog["permissions"] as List<Map<String, Any>>
+            val declared = (descriptor["permissions"] as Map<*, *>).keys
+            assertEquals(declared, entries.map { it["key"] }.toSet())
+            entries.forEach { entry ->
+                assertTrue((entry["label"] as String).isNotBlank())
+                assertTrue((entry["description"] as String).isNotBlank())
+                assertEquals(listOf("GLOBAL", "SERVER_TYPE", "SERVER"), entry["supportedScopes"])
+            }
+        }
+    }
+
     @Test
     fun `shadow jar embeds the public api and required scene dependencies once`() {
         val (entries, catalogVersion) =
