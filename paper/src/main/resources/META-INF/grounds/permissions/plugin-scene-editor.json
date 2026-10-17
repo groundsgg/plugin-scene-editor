@@ -1,0 +1,466 @@
+{
+  "source": "plugin-scene-editor",
+  "permissions": [
+    {
+      "key": "grounds.scene",
+      "label": "Use the scene editor",
+      "description": "Use the scene editor.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.edit",
+      "label": "Create and edit scene elements",
+      "description": "Create and edit scene elements.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.create",
+      "label": "Create a scene document",
+      "description": "Create a scene document.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.info",
+      "label": "Inspect an open scene",
+      "description": "Inspect an open scene.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.validate",
+      "label": "Validate an open scene",
+      "description": "Validate an open scene.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.reload",
+      "label": "Reload a scene from disk",
+      "description": "Reload a scene from disk.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.history",
+      "label": "Inspect scene history",
+      "description": "Inspect scene history.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.undo",
+      "label": "Undo scene edits",
+      "description": "Undo scene edits.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.redo",
+      "label": "Redo scene edits",
+      "description": "Redo scene edits.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.tool.give",
+      "label": "Receive the scene editor tool",
+      "description": "Receive the scene editor tool.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.save",
+      "label": "Save scene changes to the current build world",
+      "description": "Save scene changes to the current build world.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.recovery",
+      "label": "Recover or export invalid scene files",
+      "description": "Recover or export invalid scene files.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.recovery.backup-and-create",
+      "label": "Back up invalid source and create a scene",
+      "description": "Back up invalid source and create a scene.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.recovery.export",
+      "label": "Export scene diagnostics",
+      "description": "Export scene diagnostics.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.recovery.discard-and-reload",
+      "label": "Discard local edits after confirmation",
+      "description": "Discard local edits after confirmation.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.catalogs.status",
+      "label": "Inspect scene catalog status",
+      "description": "Inspect scene catalog status.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.lease.override",
+      "label": "Take over an editor lease",
+      "description": "Take over an editor lease.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.lease.status",
+      "label": "Inspect an editor lease",
+      "description": "Inspect an editor lease.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.lease.release",
+      "label": "Release an owned editor lease",
+      "description": "Release an owned editor lease.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.prop.list",
+      "label": "List props",
+      "description": "List props.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.prop.create",
+      "label": "Create props",
+      "description": "Create props.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.prop.select",
+      "label": "Select props",
+      "description": "Select props.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.prop.position.set",
+      "label": "Set prop position",
+      "description": "Set prop position.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.prop.position.here",
+      "label": "Place a prop at the editor",
+      "description": "Place a prop at the editor.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.prop.position.add",
+      "label": "Offset prop position",
+      "description": "Offset prop position.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.prop.rotation.set",
+      "label": "Set prop rotation",
+      "description": "Set prop rotation.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.prop.rotation.add",
+      "label": "Offset prop rotation",
+      "description": "Offset prop rotation.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.prop.scale.set",
+      "label": "Scale props",
+      "description": "Scale props.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.prop.clone",
+      "label": "Clone props",
+      "description": "Clone props.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.prop.remove",
+      "label": "Remove props",
+      "description": "Remove props.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.npc.list",
+      "label": "List NPCs",
+      "description": "List NPCs.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.npc.create",
+      "label": "Create NPCs",
+      "description": "Create NPCs.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.npc.select",
+      "label": "Select NPCs",
+      "description": "Select NPCs.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.npc.position.set",
+      "label": "Set NPC position",
+      "description": "Set NPC position.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.npc.position.here",
+      "label": "Place an NPC at the editor",
+      "description": "Place an NPC at the editor.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.npc.position.add",
+      "label": "Offset NPC position",
+      "description": "Offset NPC position.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.npc.rotation.set",
+      "label": "Set NPC rotation",
+      "description": "Set NPC rotation.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.npc.rotation.add",
+      "label": "Offset NPC rotation",
+      "description": "Offset NPC rotation.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.npc.scale.set",
+      "label": "Scale NPCs",
+      "description": "Scale NPCs.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.npc.label.set",
+      "label": "Change NPC labels",
+      "description": "Change NPC labels.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.npc.action.set",
+      "label": "Set parameterless catalog actions on NPC triggers",
+      "description": "Set parameterless catalog actions on NPC triggers.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.npc.collision.set",
+      "label": "Set NPC collision mode",
+      "description": "Set NPC collision mode.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.npc.collision.strength",
+      "label": "Set NPC bounce strength",
+      "description": "Set NPC bounce strength.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.npc.collision.distance",
+      "label": "Set approximate NPC bounce distance",
+      "description": "Set approximate NPC bounce distance.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.npc.clone",
+      "label": "Clone NPCs",
+      "description": "Clone NPCs.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    },
+    {
+      "key": "grounds.scene.npc.remove",
+      "label": "Remove NPCs",
+      "description": "Remove NPCs.",
+      "supportedScopes": [
+        "GLOBAL",
+        "SERVER_TYPE",
+        "SERVER"
+      ]
+    }
+  ],
+  "sourceVersion": "${version}"
+}
