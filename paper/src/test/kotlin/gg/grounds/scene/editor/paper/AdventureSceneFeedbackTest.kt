@@ -17,13 +17,13 @@ class AdventureSceneFeedbackTest {
         AdventureSceneFeedback().send(sender, SceneMessage.SAVED)
 
         assertEquals(
-            "[Grounds] General › Scene saved locally to scene.json.",
+            "[Grounds] General | Scene saved locally to scene.json.",
             sentPlainText(sender),
         )
     }
 
     @Test
-    fun `formats error feedback with the error category`() {
+    fun `formats error feedback without changing its context`() {
         val sender = mock(CommandSender::class.java)
 
         AdventureSceneFeedback()
@@ -33,7 +33,7 @@ class AdventureSceneFeedbackTest {
                 "reason" to "I/O failure",
             )
 
-        assertEquals("[Grounds] General › Scene save failed: I/O failure.", sentPlainText(sender))
+        assertEquals("[Grounds] General | Scene save failed: I/O failure.", sentPlainText(sender))
     }
 
     private fun sentPlainText(sender: CommandSender): String {
