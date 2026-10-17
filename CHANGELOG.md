@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/groundsgg/plugin-scene-editor/compare/v0.6.1...v0.6.2) (2026-10-17)
+
+
+### Bug Fixes
+
+* **chat:** align context and message-level colors ([#34](https://github.com/groundsgg/plugin-scene-editor/issues/34)) ([c9a174d](https://github.com/groundsgg/plugin-scene-editor/commit/c9a174d3b3d8f988656d8fa350c170ac72332027))
+
 ## [0.6.1](https://github.com/groundsgg/plugin-scene-editor/compare/v0.6.0...v0.6.1) (2026-10-17)
 
 
