@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/groundsgg/plugin-scene-editor/compare/v0.6.0...v0.6.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **chat:** use the shared system message layout ([#32](https://github.com/groundsgg/plugin-scene-editor/issues/32)) ([f663812](https://github.com/groundsgg/plugin-scene-editor/commit/f663812d8542fe03797093f587c35786f37e1bba))
+
 ## [0.6.0](https://github.com/groundsgg/plugin-scene-editor/compare/v0.5.1...v0.6.0) (2026-10-14)
 
 
