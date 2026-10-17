@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/groundsgg/plugin-scene-editor/compare/v0.6.2...v0.7.0) (2026-10-17)
+
+
+### Features
+
+* **catalog:** publish versioned permission manifest ([#36](https://github.com/groundsgg/plugin-scene-editor/issues/36)) ([043b1b4](https://github.com/groundsgg/plugin-scene-editor/commit/043b1b4f88246cff880efed8c47f52686a7c2efa))
+
 ## [0.6.2](https://github.com/groundsgg/plugin-scene-editor/compare/v0.6.1...v0.6.2) (2026-10-17)
 
 
