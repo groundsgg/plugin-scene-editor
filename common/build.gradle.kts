@@ -4,11 +4,11 @@ plugins {
 }
 
 dependencies {
-    api("gg.grounds:scene-format:0.4.0")
+    api("gg.grounds:scene-format:0.4.3")
     implementation("gg.grounds:resourcepacks-catalog:1.0.0")
     implementation("gg.grounds:plugin-lobby-scene-catalog:1.13.1")
 
-    testImplementation("gg.grounds:scene-testkit:0.4.0")
+    testImplementation("gg.grounds:scene-testkit:0.4.3")
     testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
