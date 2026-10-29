@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/groundsgg/plugin-scene-editor/compare/v0.7.0...v0.8.0) (2026-10-29)
+
+
+### Features
+
+* **chat:** make scene editor command prompts clickable ([#42](https://github.com/groundsgg/plugin-scene-editor/issues/42)) ([05394da](https://github.com/groundsgg/plugin-scene-editor/commit/05394da4b8e8bbeae7aa6cc8d6d7eb20816ca75a))
+
 ## [0.7.0](https://github.com/groundsgg/plugin-scene-editor/compare/v0.6.2...v0.7.0) (2026-10-17)
 
 
