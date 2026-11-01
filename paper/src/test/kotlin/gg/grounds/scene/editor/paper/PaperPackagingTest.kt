@@ -65,7 +65,10 @@ class PaperPackagingTest {
             1,
             entries.count { it == "gg/grounds/resourcepacks/catalog/catalog-version.txt" },
         )
-        assertEquals("1.0.0", catalogVersion)
+        assertEquals(
+            gg.grounds.resourcepacks.catalog.GroundsAssetCatalog.catalog.version,
+            catalogVersion,
+        )
         assertFalse(entries.any { it.startsWith("org/junit/") })
     }
 

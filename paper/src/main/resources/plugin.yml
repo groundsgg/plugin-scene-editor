@@ -6,6 +6,10 @@ description: "Paper scene authoring for Grounds build servers"
 authors: ["grounds"]
 depend: [BuildSystem]
 commands:
+  npcpreview:
+    description: Preview the installed NPC models, animations and sounds
+    usage: "/npcpreview [queue|all|idle|idle2|greet|stop]"
+    permission: grounds.scene.edit
   scene:
     description: Author the scene for the current build world
     usage: "/scene"

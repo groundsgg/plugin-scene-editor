@@ -381,10 +381,22 @@ class EditorSessionServiceTest {
     }
 
     @Test
-    fun `current navigator pin survives an unrelated transform edit and save decode`() {
+    fun `revision two navigator pin survives an unrelated transform edit and save decode`() {
         val catalogs = SceneCatalogBinding.production()
         val service = EditorSessionService(catalogs)
-        val document = navigatorDocument(catalogs, emptyMap())
+        val fresh = navigatorDocument(catalogs, emptyMap())
+        val document =
+            SceneDocument(
+                fresh.schemaVersion,
+                fresh.id,
+                fresh.metadata,
+                SceneCatalogReferences(
+                    fresh.catalogs.assets,
+                    CatalogReference(CatalogId("grounds:actions"), "2"),
+                ),
+                fresh.groups,
+                fresh.elements,
+            )
         val repository = WorldSceneRepository(Files.createTempDirectory("navigator-round-trip"))
         service.open(world, document)
         assertTrue(service.select(world, alice, LocalId("guide")) is SelectionResult.Selected)

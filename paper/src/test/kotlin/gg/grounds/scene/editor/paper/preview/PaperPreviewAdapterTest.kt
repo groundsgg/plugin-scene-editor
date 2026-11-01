@@ -87,6 +87,88 @@ class PaperPreviewAdapterTest {
     }
 
     @Test
+    fun `retained handles advance each reconciliation and stop after viewer cleanup`() {
+        var document = catalogs.newDocument("grounds:preview")
+        document =
+            (SceneMutations.createNpc(
+                        actor,
+                        LocalId("guide"),
+                        AssetKey("grounds:editor/guide"),
+                        PlayerPlacement(Vec3(0.0, 0.0, 0.0), 0.0),
+                    )
+                    .apply(document, catalogs) as SceneMutationResult.Success)
+                .document
+        var advances = 0
+        val adapter =
+            PaperPreviewAdapter(
+                PreviewEntityFactory { _, _ ->
+                    PreviewHandle(emptyList()) { advances++ }
+                }
+            )
+        val world = mock(World::class.java)
+        `when`(world.uid).thenReturn(worldId)
+        val viewer = mock(Player::class.java)
+        `when`(viewer.world).thenReturn(world)
+        `when`(viewer.uniqueId).thenReturn(viewerId)
+        val snapshot = SessionPreviewSnapshot(worldId, document, 1, emptyMap())
+        adapter.reconcile(viewer, snapshot)
+        adapter.reconcile(viewer, snapshot)
+        assertEquals(2, advances)
+        adapter.clearViewer(viewerId)
+        assertEquals(2, advances)
+    }
+
+    @Test
+    fun `hover changes retained handles only for its viewer and ignores closed handles`() {
+        val document =
+            (SceneMutations.createNpc(
+                        actor,
+                        LocalId("guide"),
+                        AssetKey("grounds:editor/guide"),
+                        PlayerPlacement(Vec3(0.0, 0.0, 0.0), 0.0),
+                    )
+                    .apply(catalogs.newDocument("grounds:hover"), catalogs)
+                    as SceneMutationResult.Success)
+                .document
+        val updates = mutableMapOf<UUID, MutableList<Boolean>>()
+        val handles = mutableListOf<PreviewHandle>()
+        var creates = 0
+        val adapter =
+            PaperPreviewAdapter(
+                PreviewEntityFactory { viewer, _ ->
+                    creates++
+                    PreviewHandle(emptyList())
+                        .withHighlighter {
+                            updates.getOrPut(viewer.uniqueId, ::mutableListOf).add(it)
+                        }
+                        .also(handles::add)
+                }
+            )
+        val world = mock(World::class.java)
+        `when`(world.uid).thenReturn(worldId)
+        fun viewer(id: UUID) =
+            mock(Player::class.java).also {
+                `when`(it.world).thenReturn(world)
+                `when`(it.uniqueId).thenReturn(id)
+            }
+        val first = viewer(viewerId)
+        val other = viewer(actor)
+        val snapshot = SessionPreviewSnapshot(worldId, document, 1, emptyMap())
+        adapter.reconcile(first, snapshot)
+        adapter.reconcile(other, snapshot)
+        adapter.applyHover(first, LocalId("guide"))
+        adapter.applyHover(first, LocalId("guide"))
+        adapter.reconcile(first, snapshot)
+        adapter.applyHover(first, null)
+        assertEquals(2, creates)
+        assertEquals(listOf(true, false), updates[viewerId])
+        assertEquals(null, updates[actor])
+        adapter.clearViewer(viewerId)
+        handles.first().highlight(true)
+        assertEquals(listOf(true, false), updates[viewerId])
+    }
+
+    @Test
     fun `older async snapshot cannot replace a newer preview generation`() {
         val document = catalogs.newDocument("grounds:preview")
         var creates = 0
