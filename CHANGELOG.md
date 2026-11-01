@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/groundsgg/plugin-scene-editor/compare/v0.8.0...v0.9.0) (2026-11-01)
+
+
+### Features
+
+* **editor:** preview animated model NPCs with sounds and shared hover ([#44](https://github.com/groundsgg/plugin-scene-editor/issues/44)) ([120d322](https://github.com/groundsgg/plugin-scene-editor/commit/120d322922fb245d7c98aa201ca0399785fb4e72))
+
 ## [0.8.0](https://github.com/groundsgg/plugin-scene-editor/compare/v0.7.0...v0.8.0) (2026-10-29)
 
 
