@@ -82,16 +82,14 @@ class SceneCommandAdapterTest {
     }
 
     @Test
-    fun `root help exposes all npc collision command forms`() {
+    fun `root help exposes npc collision editing action`() {
         val fixture = fixture()
 
         fixture.command.execute(fixture.player)
 
         assertTrue(
             fixture.feedback.infos.any {
-                it.contains("collision set none|solid|bounce") &&
-                    it.contains("collision strength <0..20>") &&
-                    it.contains("collision distance <0..20>")
+                it.contains("Edit NPC collision") && it.contains("Type, strength, distance")
             }
         )
     }
