@@ -5,7 +5,7 @@ plugins {
 
 dependencies {
     api("gg.grounds:scene-format:0.4.4")
-    implementation("gg.grounds:resourcepacks-catalog:1.3.0")
+    implementation("gg.grounds:resourcepacks-catalog:0.0.0-edge.50.g7048b334c7bf")
     implementation("gg.grounds:plugin-lobby-scene-catalog:2.23.0")
 
     testImplementation("gg.grounds:scene-testkit:0.4.4")
