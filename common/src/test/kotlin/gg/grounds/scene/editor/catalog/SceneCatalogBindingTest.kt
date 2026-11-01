@@ -25,10 +25,65 @@ import org.junit.jupiter.api.Test
 
 class SceneCatalogBindingTest {
     @Test
+    fun `queue NPC actions validate required modes and old revision two documents retain their pin`() {
+        val binding = SceneCatalogBinding.production()
+        fun queue(mode: String) =
+            ApplicationAction(
+                ActionKey("grounds:lobby/toggle_queue"),
+                mapOf(
+                    gg.grounds.scene.format.LocalId("mode") to
+                        gg.grounds.scene.format.StringArgument(mode)
+                ),
+            )
+        val scene =
+            binding.newDocument("grounds:queue", elements = listOf(npc(queue("bedwars-2x1"))))
+        assertTrue(binding.actionsVerified(scene))
+        for (mode in listOf("", "queue leave", "../duel", "A", "a".repeat(129))) {
+            assertFalse(
+                binding.actionsVerified(document(scene, elements = listOf(npc(queue(mode)))))
+            )
+        }
+        assertFalse(
+            binding.actionsVerified(
+                document(
+                    scene,
+                    elements =
+                        listOf(
+                            npc(
+                                ApplicationAction(
+                                    ActionKey("grounds:lobby/toggle_queue"),
+                                    emptyMap(),
+                                )
+                            )
+                        ),
+                )
+            )
+        )
+        val revisionTwo =
+            document(
+                scene,
+                catalogs =
+                    SceneCatalogReferences(
+                        scene.catalogs.assets,
+                        CatalogReference(CatalogId("grounds:actions"), "2"),
+                    ),
+                elements =
+                    listOf(
+                        npc(
+                            ApplicationAction(ActionKey("grounds:lobby/open_navigator"), emptyMap())
+                        )
+                    ),
+            )
+        assertTrue(binding.actionsVerified(revisionTwo))
+        assertEquals("2", revisionTwo.catalogs.actions.version)
+        assertFalse(binding.actionsVerified(document(scene, catalogs = revisionTwo.catalogs)))
+    }
+
+    @Test
     fun `production binding creates and verifies stable asset catalog documents`() {
         val binding = SceneCatalogBinding.production()
         val fresh = binding.newDocument("grounds:fresh")
-        val stableReference = CatalogReference(CatalogId("grounds:assets"), "1.0.0")
+        val stableReference = CatalogReference(CatalogId("grounds:assets"), binding.assets.version)
         val stableDocument =
             SceneDocument(
                 1,
@@ -70,7 +125,7 @@ class SceneCatalogBindingTest {
 
         assertTrue(binding.status(legacy).isVerified)
         assertEquals("1", legacy.catalogs.actions.version)
-        assertEquals("2", fresh.catalogs.actions.version)
+        assertEquals("3", fresh.catalogs.actions.version)
         assertTrue(binding.actionsVerified(legacy))
         assertTrue(binding.status(fresh).isVerified)
         assertFalse(binding.status(unknownRevision).isVerified)

@@ -14,6 +14,8 @@ repositories { maven("https://repo.papermc.io/repository/maven-public/") }
 
 dependencies {
     implementation(project(":common"))
+    implementation("gg.grounds:resourcepacks-npc-runtime:1.2.1")
+    implementation("gg.grounds:scene-interaction:0.4.3")
     implementation("gg.grounds:library-i18n:0.4.4")
     compileOnly("de.eintosti:buildsystem-api:4.0.0")
 
