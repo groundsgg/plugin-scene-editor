@@ -17,7 +17,7 @@ dependencies {
     implementation("gg.grounds:resourcepacks-npc-runtime:1.3.0")
     implementation("gg.grounds:scene-interaction:0.4.4")
     implementation("gg.grounds:library-i18n:0.4.4")
-    compileOnly("de.eintosti:buildsystem-api:4.0.0")
+    compileOnly("de.eintosti:buildsystem-api:4.1.0")
 
     testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v26.1.2:4.115.0")
     testImplementation("org.mockito:mockito-core:5.24.0")
